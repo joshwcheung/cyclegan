@@ -6,7 +6,7 @@ def lrelu(x, leak=0.2, scope='lrelu'):
     with tf.variable_scope(scope):
         return tf.maximum(x, leak * x)
 
-def conv2d(x, n_outputs, kernel_size, stride=1, padding='VALID', 
+def conv2d(x, n_outputs, kernel_size, stride=1, padding='SAME', 
            activation_fn=None, scope='conv2d'):
     with tf.variable_scope(scope):
         w_init = tf.truncated_normal_initializer(stddev=0.02)
@@ -16,7 +16,7 @@ def conv2d(x, n_outputs, kernel_size, stride=1, padding='VALID',
                                         weights_initializer=w_init, 
                                         biases_initializer=b_init)
 
-def deconv2d(x, n_outputs, kernel_size, stride=1, padding='VALID', 
+def deconv2d(x, n_outputs, kernel_size, stride=1, padding='SAME', 
            activation_fn=None, scope='deconv2d'):
     with tf.variable_scope(scope):
         w_init = tf.truncated_normal_initializer(stddev=0.02)
