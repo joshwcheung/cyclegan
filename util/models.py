@@ -1,0 +1,57 @@
+import tensorflow as tf
+
+from layers import *
+
+def resnet_block(x, dim, scope='res'):
+    with tf.variable_scope(scope):
+        y = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], 'REFLECT')
+        y = conv2d(y, dim, 3, 1, padding='VALID', scope='_conv1')
+        y = instance_norm(y, scope='_norm1')
+        y = relu(y, name='_relu1')
+        y = tf.pad(y, [[0, 0], [1, 1], [1, 1], [0, 0]], 'REFLECT')
+        y = conv2d(y,dim, 3, 1, padding='VALID', scope='_conv2')
+        y = instance_norm(y, scope'_norm2')
+        return x + y
+
+def generator(x, dim, reuse=False, scope='gen'):
+    with tf.variable_scope(scope):
+        if reuse:
+            tf.get_variable_scope().reuse_variables()
+        
+        #Convolutional layers
+        g_p1 = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
+        g_c1 = conv2d(g_p1, dim, 7, stride=1, padding='VALID', scope='conv1')
+        g_n1 = instance_norm(g_c1, scope='norm1')
+        g_r1 = relu(g_n1, name='relu1')
+        
+        g_c2 = conv2d(g_r1, dim * 2, 3, stride=2, scope='conv2')
+        g_n2 = instance_norm(g_c2, scope='norm2')
+        g_r2 = relu(g_n2, name='relu2')
+        
+        g_c3 = conv2d(g_r2, dim * 4, 3, stride=2, scope='conv3')
+        g_n3 = instance_norm(g_c3, scope='norm3')
+        g_r3 = relu(g_n3, name='relu3')
+        
+        #ResNet blocks
+        res1 = resnet_block(g_r3, dim * 4, scope='res1')
+        res2 = resnet_block(res1, dim * 4, scope='res2')
+        res3 = resnet_block(res2, dim * 4, scope='res3')
+        res4 = resnet_block(res3, dim * 4, scope='res4')
+        res5 = resnet_block(res4, dim * 4, scope='res5')
+        res6 = resnet_block(res5, dim * 4, scope='res6')
+        
+        #Deconvolutional layers
+        g_c4 = deconv2d(res6, dim * 2, 3, stride=2, scope='dconv4')
+        g_n4 = instance_norm(g_c4, scope='norm4')
+        g_r4 = relu(g_n4, name='relu4')
+        
+        g_c5 = deconv2d(g_r4, dim, 3, stride=2, scope='dconv5')
+        g_n5 = instance_norm(g_c5, scope='norm5')
+        g_r5 = relu(g_n5, name='relu5')
+        
+        g_p2 = tf.pad(g_r5, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
+        g_c6 = conv2d(g_p2, 3, 7, stride=1, padding='VALID', scope='conv6')
+        
+        y = tf.nn.tanh(d_conv, name='tanh1')
+        return y
+
