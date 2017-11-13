@@ -1,1 +1,3 @@
-# cyclegan
+# CycleGAN
+
+A simple CycleGAN implementation
