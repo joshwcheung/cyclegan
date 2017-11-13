@@ -13,11 +13,8 @@ def resnet_block(x, dim, scope='res'):
         y = instance_norm(y, scope'_norm2')
         return x + y
 
-def generator(x, dim, reuse=False, scope='gen'):
+def generator(x, dim, scope='gen'):
     with tf.variable_scope(scope):
-        if reuse:
-            tf.get_variable_scope().reuse_variables()
-        
         #Convolutional layers
         g_p1 = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
         g_c1 = conv2d(g_p1, dim, 7, stride=1, padding='VALID', scope='conv1')
@@ -54,4 +51,26 @@ def generator(x, dim, reuse=False, scope='gen'):
         
         y = tf.nn.tanh(d_conv, name='tanh1')
         return y
+
+def discriminator(x, dim, scope='dis'):
+    with tf.variable_scope(scope):
+        #Convolutional layers
+        d_c1 = conv2d(x, dim, 4, stride=2, scope='conv1')
+        d_r1 = lrelu(d_c1, scope='lrelu1')
+        
+        d_c2 = conv2d(d_r1, dim * 2, 4, stride=2, scope='conv2')
+        d_n2 = instance_norm(d_c2, scope='norm2')
+        d_r2 = lrelu(d_n2, scope='lrelu2')
+        
+        d_c3 = conv2d(d_r2, dim * 4, 4, stride=2, scope='conv3')
+        d_n3 = instance_norm(d_c3, scope='norm3')
+        d_r3 = lrelu(d_n3, scope='lrelu3')
+        
+        d_c4 = conv2d(d_r3, dim * 8, 4, stride=1, scope='conv4')
+        d_n4 = instance_norm(d_c4, scope='norm4')
+        d_r4 = lrelu(d_n4, scope='lrelu4')
+        
+        d_c5 = conv2d(d_r4, 1, 4, stride=1, scope='conv5')
+        
+        return d_c5
 
