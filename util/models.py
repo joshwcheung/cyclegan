@@ -13,7 +13,7 @@ def resnet_block(x, dim, scope='res'):
         y = instance_norm(y, scope'_norm2')
         return x + y
 
-def generator(x, dim, n_channels, scope='gen'):
+def generator(x, dim=32, n_channels, scope='gen'):
     with tf.variable_scope(scope):
         #Convolutional layers
         g_p1 = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
@@ -53,7 +53,7 @@ def generator(x, dim, n_channels, scope='gen'):
         y = tf.nn.tanh(d_conv, name='tanh1')
         return y
 
-def discriminator(x, dim, scope='dis'):
+def discriminator(x, dim=64, scope='dis'):
     with tf.variable_scope(scope):
         #Convolutional layers
         d_c1 = conv2d(x, dim, 4, stride=2, scope='conv1')
