@@ -2,6 +2,8 @@ import tensorflow as tf
 
 from layers import *
 
+N_CHANNELS = 1
+
 def resnet_block(x, dim, scope='res'):
     with tf.variable_scope(scope):
         y = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]], 'REFLECT')
@@ -47,7 +49,8 @@ def generator(x, dim, scope='gen'):
         g_r5 = relu(g_n5, name='relu5')
         
         g_p2 = tf.pad(g_r5, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
-        g_c6 = conv2d(g_p2, 3, 7, stride=1, padding='VALID', scope='conv6')
+        g_c6 = conv2d(g_p2, N_CHANNELS, 7, stride=1, padding='VALID', 
+                      scope='conv6')
         
         y = tf.nn.tanh(d_conv, name='tanh1')
         return y
