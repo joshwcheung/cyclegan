@@ -181,8 +181,8 @@ class CycleGAN:
             scope.reuse_variables()
             
             #Fake pool for discriminator loss
-            self.p_fake_pool_a = discriminator(self.fake_pool_a, 'd_a')
-            self.p_fake_pool_b = discriminator(self.fake_pool_b, 'd_b')
+            self.p_fake_pool_a = discriminator(self.fake_pool_a, scope='d_a')
+            self.p_fake_pool_b = discriminator(self.fake_pool_b, scope='d_b')
     
     def loss(self):
         #Cycle consistency loss
