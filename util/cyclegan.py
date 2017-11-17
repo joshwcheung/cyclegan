@@ -205,10 +205,10 @@ class CycleGAN:
         
         #Isolate variables
         self.vars = tf.trainable_variables()
-        d_a_vars = [var for v in self.vars if 'd_a' in v.name]
-        d_b_vars = [var for v in self.vars if 'd_b' in v.name]
-        g_a_vars = [var for v in self.vars if 'g_a' in v.name]
-        g_b_vars = [var for v in self.vars if 'g_b' in v.name]
+        d_a_vars = [v for v in self.vars if 'd_a' in v.name]
+        d_b_vars = [v for v in self.vars if 'd_b' in v.name]
+        g_a_vars = [v for v in self.vars if 'g_a' in v.name]
+        g_b_vars = [v for v in self.vars if 'g_b' in v.name]
         
         #Train while freezing other variables
         self.d_a_train = optimizer.minimize(d_a_loss, var_list=d_a_vars)
