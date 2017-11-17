@@ -60,8 +60,8 @@ class CycleGan:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        self.image_a = tf.decode_raw(train_a_file, tf.float32)
-        self.image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.decode_raw(train_a_file, tf.float32)
+        image_b = tf.decode_raw(train_b_file, tf.float32)
         
         #Resize without scaling
         self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
@@ -106,8 +106,8 @@ class CycleGan:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        self.3d_image_a = tf.decode_raw(train_a_file, tf.float32)
-        self.3d_image_b = tf.decode_raw(train_b_file, tf.float32)
+        3d_image_a = tf.decode_raw(train_a_file, tf.float32)
+        3d_image_b = tf.decode_raw(train_b_file, tf.float32)
         
         #Resize without scaling
         self.3d_input_a = tf.image.resize_image_with_crop_or_pad(3d_image_a, 
@@ -232,10 +232,19 @@ class CycleGan:
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
         for i in range(0, self.n_save):
-            inputs = sess.run([self.
+            inputs = sess.run([self.3d_input_a, self.3d_input_b, 
+                               self.3d_batch_a, self.3d_batch_b])
+            _, _, batch_a, batch_b = inputs
+            fake_a_temp, fake_b_temp, cyc_a_temp, cyc_b_temp = \
+                sess.run([self.fake_a, self.fake_b, self.cycle_a, self.cycle_b],
+                         feed_dict={self.real_a: batch_a, self.real_b: batch_b})
+            tensors = [batch_a, batch_b, fake_b_temp, fake_a_temp, cyc_a_temp, 
+                       cyc_b_temp]
+            #TODO: Save the image
     
     def train(self):
         self.input_setup()
+        self.3d_input_setup()
         self.setup()
         self.loss()
         init = (tf.global_variables_initializer(), 
