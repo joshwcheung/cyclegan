@@ -17,6 +17,7 @@ class CycleGAN:
         self.input_h = 286
         self.w = 256
         self.h = 256
+        self.d = 256
         self.c = 1
         
         #TODO: Maybe make these adjustable? min/max voxels
@@ -63,8 +64,10 @@ class CycleGAN:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        image_a = tf.decode_raw(train_a_file, tf.float32)
-        image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
+                             [self.w, self.h, self.c])
+        image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
+                             [self.w, self.h, self.c])
         
         #Resize without scaling
         self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
@@ -79,8 +82,8 @@ class CycleGAN:
         self.input_b = tf.image.random_flip_left_right(self.input_b)
         
         #Randomly crop
-        self.input_a = tf.random_crop(input_a, [self.h, self.w, self.c])
-        self.input_b = tf.random_crop(input_b, [self.h, self.w, self.c])
+        self.input_a = tf.random_crop(self.input_a, [self.h, self.w, self.c])
+        self.input_b = tf.random_crop(self.input_b, [self.h, self.w, self.c])
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
@@ -109,8 +112,10 @@ class CycleGAN:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        image_a = tf.decode_raw(train_a_file, tf.float32)
-        image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
+                             [self.d, self.w, self.h, self.c])
+        image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
+                             [self.d, self.w, self.h, self.c])
         
         #Resize without scaling
         self.input_a_3d = tf.image.resize_image_with_crop_or_pad(image_a, 
