@@ -17,6 +17,12 @@ for x in ('pre', 'post'):
         affine = img.affine
         data = img.get_data()
         
+        #Transpose so that acquisition slices are in the first dimension
+        data = data.transpose(2, 0, 1)
+        
+        #Add channel dimension
+        data = np.expand_dims(data, axis=3)
+        
         #Save affine, image as .npy
         print('Saving {:s}-{:s}...'.format(x, subj_name))
         np.save(os.path.join(npy_path, 'affine', x, subj_name), affine)
@@ -25,7 +31,8 @@ for x in ('pre', 'post'):
         #Save slices as .npy
         for i in range(data.shape[-1]):
             sl_name = '{:s}-{:03d}'.format(subj_name, i)
-            np.save(os.path.join(npy_path, 'slices', x, sl_name), data[:, :, i])
+            np.save(os.path.join(npy_path, 'slices', x, sl_name), 
+                    data[:, :, i, :])
 
 print('Done.')
 
