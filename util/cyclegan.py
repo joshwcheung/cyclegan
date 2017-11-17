@@ -288,4 +288,42 @@ class CycleGan:
                     _, fake_b_temp, summary = sess.run(run_list, feed_dict)
                     writer.add_summary(summary, epoch * self.n_train + i)
                     
+                    #Sample from fake B pool
+                    fake_b_sample = self.fake_pool(fake_b_temp, self.fake_b)
                     
+                    #Optimize D_B
+                    run_list = [self.d_b_train, self.d_b_loss_summary]
+                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                                 self.lr: current_lr, 
+                                 self.fake_pool_b: fake_b_sample}
+                    _, summary = sess.run(run_list, feed_dict)
+                    writer.add_summary(summary, epoch * self.n_train + i)
+                    
+                    #Optimize G_B
+                    run_list = [self.g_b_train, self.fake_a, 
+                                self.g_b_loss_summary]
+                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                                 self.lr: current_lr}
+                    _, fake_a_temp, summary = sess.run(run_list, feed_dict)
+                    writer.add_summary(summary, epoch * self.n_train + i)
+                    
+                    #Sample from fake A pool
+                    fake_a_sample = self.fake_pool(fake_a_temp, self.fake_a)
+                    
+                    #Optimize D_A
+                    run_list = [self.d_a_train, self.d_a_loss_summary]
+                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                                 self.lr: current_lr, 
+                                 self.fake_pool_a: fake_a_sample}
+                    _, summary = sess.run(run_list, feed_dict)
+                    writer.add_summary(summary, epoch * self.n_train + i)
+                    
+                    writer.flush()
+                    self.n_fake += 1
+                    
+                sess.run(tf.assign(self.global_step, epoch + 1))
+                
+            coord.request_stop()
+            coord.join(threads)
+            writer.add_graph(sess.graph)
+    
