@@ -10,7 +10,7 @@ def resnet_block(x, nf, scope='res'):
         y = relu(y, name='_relu1')
         y = tf.pad(y, [[0, 0], [1, 1], [1, 1], [0, 0]], 'REFLECT')
         y = conv2d(y,nf, 3, 1, padding='VALID', scope='_conv2')
-        y = instance_norm(y, scope'_norm2')
+        y = instance_norm(y, scope='_norm2')
         return x + y
 
 def generator(x, nf=32, c, scope='gen'):
