@@ -1,3 +1,3 @@
 # CycleGAN
 
-A simple CycleGAN implementation
+A TensorFlow implementation of CycleGAN for neuroimaging data
