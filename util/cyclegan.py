@@ -7,7 +7,7 @@ import tensorflow.contrib.slim as slim
 from loss import *
 from models import *
 
-class CycleGan:
+class CycleGAN:
     def __init__(self):
         current_time = datetime.now().strftime('%Y%m%d-%H%M%S')
         #Image dimensions
