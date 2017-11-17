@@ -36,6 +36,7 @@ class CycleGan:
         self.pool_size = 50
         self.base_lr = 0.0002
         self.max_step = 200
+        self.n_save = 1
         
         #Initalize fake images
         self.fake_a = np.zeros((self.pool_size, 1, self.w, self.h, self.c))
@@ -105,28 +106,30 @@ class CycleGan:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        self.image_a = tf.decode_raw(train_a_file, tf.float32)
-        self.image_b = tf.decode_raw(train_b_file, tf.float32)
+        self.3d_image_a = tf.decode_raw(train_a_file, tf.float32)
+        self.3d_image_b = tf.decode_raw(train_b_file, tf.float32)
         
         #Resize without scaling
-        self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
-                                                              self.h, 
-                                                              self.w)
-        self.input_b = tf.image.resize_image_with_crop_or_pad(image_b, 
-                                                              self.h, 
-                                                              self.w)
+        self.3d_input_a = tf.image.resize_image_with_crop_or_pad(3d_image_a, 
+                                                                 self.h, 
+                                                                 self.w)
+        self.3d_input_b = tf.image.resize_image_with_crop_or_pad(3d_image_b, 
+                                                                 self.h, 
+                                                                 self.w)
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
-        self.input_a = tf.subtract(tf.divide(tf.subtract(self.input_a, 
-                                                         self.min), denom), 1)
-        self.input_b = tf.subtract(tf.divide(tf.subtract(self.input_b, 
-                                                         self.min), denom), 1)
+        self.3d_input_a = \
+            tf.subtract(tf.divide(tf.subtract(self.3d_input_a, 
+                                              self.min), denom), 1)
+        self.3d_input_b = \
+            tf.subtract(tf.divide(tf.subtract(self.3d_input_b, 
+                                              self.min), denom), 1)
         
         #Shuffle batch
-        self.batch_a, self.batch_b = tf.train.shuffle_batch([self.input_a, 
-                                                             self.input_b], 
-                                                            1, 250, 5)
+        self.3d_batch_a, self.3d_batch_b = \
+            tf.train.shuffle_batch([self.3d_input_a, self.3d_input_b], 
+                                   1, 250, 5)
         
     
     def setup(self):
@@ -228,7 +231,8 @@ class CycleGan:
     def save_train_images(self, sess, epoch):
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
-        for i in range(0, self.
+        for i in range(0, self.n_save):
+            inputs = sess.run([self.
     
     def train(self):
         self.input_setup()
