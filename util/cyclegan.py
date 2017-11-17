@@ -281,7 +281,7 @@ class CycleGAN:
                 
                 #TODO: Save training images
                 
-                for i in range(0, self.n_train):
+                for i in range(0, sess.run(self.n_train)):
                     print('Epoch {} Image {}/{}'.format(epoch, i, self.n_train))
                     inputs = sess.run([self.input_a, self.input_b, 
                                        self.batch_a, self.batch_b])
