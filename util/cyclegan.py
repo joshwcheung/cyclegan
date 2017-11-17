@@ -92,7 +92,7 @@ class CycleGan:
                                                              self.input_b], 
                                                             1, 5000, 100)
     
-    def 3d_input_setup(self):
+    def input_setup_3d(self):
         input_dir = os.path.join('../datasets/', self.name)
         train_a_dir = os.path.join(input_dir, 'trainA_whole', '*.npy')
         train_b_dir = os.path.join(input_dir, 'trainB_whole', '*.npy')
@@ -107,29 +107,29 @@ class CycleGan:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        3d_image_a = tf.decode_raw(train_a_file, tf.float32)
-        3d_image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.decode_raw(train_a_file, tf.float32)
+        image_b = tf.decode_raw(train_b_file, tf.float32)
         
         #Resize without scaling
-        self.3d_input_a = tf.image.resize_image_with_crop_or_pad(3d_image_a, 
+        self.input_a_3d = tf.image.resize_image_with_crop_or_pad(image_a, 
                                                                  self.h, 
                                                                  self.w)
-        self.3d_input_b = tf.image.resize_image_with_crop_or_pad(3d_image_b, 
+        self.input_b_3d = tf.image.resize_image_with_crop_or_pad(image_b, 
                                                                  self.h, 
                                                                  self.w)
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
-        self.3d_input_a = \
-            tf.subtract(tf.divide(tf.subtract(self.3d_input_a, 
+        self.input_a_3d = \
+            tf.subtract(tf.divide(tf.subtract(self.input_a_3d, 
                                               self.min), denom), 1)
-        self.3d_input_b = \
-            tf.subtract(tf.divide(tf.subtract(self.3d_input_b, 
+        self.input_b_3d = \
+            tf.subtract(tf.divide(tf.subtract(self.input_b_3d, 
                                               self.min), denom), 1)
         
         #Shuffle batch
-        self.3d_batch_a, self.3d_batch_b = \
-            tf.train.shuffle_batch([self.3d_input_a, self.3d_input_b], 
+        self.batch_a_3d, self.batch_b_3d = \
+            tf.train.shuffle_batch([self.input_a_3d, self.input_b_3d], 
                                    1, 250, 5)
         
     
@@ -233,8 +233,8 @@ class CycleGan:
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
         for i in range(0, self.n_save):
-            inputs = sess.run([self.3d_input_a, self.3d_input_b, 
-                               self.3d_batch_a, self.3d_batch_b])
+            inputs = sess.run([self.input_a_3d, self.input_b_3d, 
+                               self.batch_a_3d, self.batch_b_3d])
             _, _, batch_a, batch_b = inputs
             fake_a_temp, fake_b_temp, cyc_a_temp, cyc_b_temp = \
                 sess.run([self.fake_a, self.fake_b, self.cycle_a, self.cycle_b],
@@ -245,7 +245,7 @@ class CycleGan:
     
     def train(self):
         self.input_setup()
-        self.3d_input_setup()
+        self.input_setup_3d()
         self.setup()
         self.loss()
         init = (tf.global_variables_initializer(), 
@@ -327,3 +327,23 @@ class CycleGan:
             coord.join(threads)
             writer.add_graph(sess.graph)
     
+    def test(self, filename):
+        self.input_setup_3d()
+        self.setup()
+        
+        saver = tf.train.Saver()
+        init = tf.global_variables_initializer()
+        
+        with tf.Session() as sess:
+            sess.run(init)
+            ckpt_name = tf.train.latest_checkpoint(self.ckpt_dir)
+            saver.restore(sess, ckpt_name)
+            
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord)
+            
+            
+            
+            coord.request_stop()
+            coord.join(threads)
+
