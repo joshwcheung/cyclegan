@@ -13,7 +13,7 @@ def resnet_block(x, nf, scope='res'):
         y = instance_norm(y, scope='_norm2')
         return x + y
 
-def generator(x, nf=32, c, scope='gen'):
+def generator(x, nf=32, c=1, scope='gen'):
     with tf.variable_scope(scope):
         #Convolutional layers
         g_p1 = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'REFLECT')
