@@ -52,6 +52,7 @@ class CycleGan:
         
         self.n_train_a = tf.size(train_a_names)
         self.n_train_b = tf.size(train_b_names)
+        self.n_train = tf.maximum(self.n_train_a, self.n_train_b)
         
         train_a_queue = tf.train.string_input_producer(train_a_names)
         train_b_queue = tf.train.string_input_producer(train_b_names)
@@ -275,6 +276,16 @@ class CycleGan:
                 
                 for i in range(0, self.n_train):
                     print('Epoch {} Image {}/{}'.format(epoch, i, self.n_train))
-                
-                #TODO: run inputs in sess
-                
+                    inputs = sess.run([self.input_a, self.input_b, 
+                                       self.batch_a, self.batch_b])
+                    input_a, input_b, batch_a, batch_b = inputs
+                    
+                    #Optimize G_A
+                    run_list = [self.g_a_train, self.fake_b, 
+                                self.g_a_loss_summary]
+                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                                 self.lr: current_lr}
+                    _, fake_b_temp, summary = sess.run(run_list, feed_dict)
+                    writer.add_summary(summary, epoch * self.n_train + i)
+                    
+                    
