@@ -272,7 +272,7 @@ class CycleGAN:
             threads = tf.train.start_queue_runners(coord=coord)
             
             for epoch in range(sess.run(self.global_step), self.max_step):
-                saver.save(sess, self.ckpt_dir, self.global_step=epoch)
+                saver.save(sess, self.ckpt_dir, global_step=epoch)
                 
                 if epoch < 100:
                     current_lr = self.base_lr
