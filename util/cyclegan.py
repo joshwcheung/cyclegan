@@ -43,8 +43,8 @@ class CycleGan:
     
     def input_setup(self):
         input_dir = os.path.join('../datasets/', self.name)
-        train_a_dir = os.path.join(input_dir, 'trainA')
-        train_b_dir = os.path.join(input_dir, 'trainB')
+        train_a_dir = os.path.join(input_dir, 'trainA', '*.npy')
+        train_b_dir = os.path.join(input_dir, 'trainB', '*.npy')
         
         train_a_names = tf.train.match_filenames_once(train_a_dir)
         train_b_names = tf.train.match_filenames_once(train_b_dir)
@@ -89,6 +89,45 @@ class CycleGan:
         self.batch_a, self.batch_b = tf.train.shuffle_batch([self.input_a, 
                                                              self.input_b], 
                                                             1, 5000, 100)
+    
+    def 3d_input_setup(self):
+        input_dir = os.path.join('../datasets/', self.name)
+        train_a_dir = os.path.join(input_dir, 'trainA_whole', '*.npy')
+        train_b_dir = os.path.join(input_dir, 'trainB_whole', '*.npy')
+        
+        train_a_names = tf.train.match_filenames_once(train_a_dir)
+        train_b_names = tf.train.match_filenames_once(train_b_dir)
+        
+        train_a_queue = tf.train.string_input_producer(train_a_names)
+        train_b_queue = tf.train.string_input_producer(train_b_names)
+        
+        reader = tf.WholeFileReader()
+        _, train_a_file = reader.read(train_a_queue)
+        _, train_b_file = reader.read(train_b_queue)
+        
+        self.image_a = tf.decode_raw(train_a_file, tf.float32)
+        self.image_b = tf.decode_raw(train_b_file, tf.float32)
+        
+        #Resize without scaling
+        self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
+                                                              self.h, 
+                                                              self.w)
+        self.input_b = tf.image.resize_image_with_crop_or_pad(image_b, 
+                                                              self.h, 
+                                                              self.w)
+        
+        #Normalize values: -1 to 1
+        denom = (self.max - self.min) / 2
+        self.input_a = tf.subtract(tf.divide(tf.subtract(self.input_a, 
+                                                         self.min), denom), 1)
+        self.input_b = tf.subtract(tf.divide(tf.subtract(self.input_b, 
+                                                         self.min), denom), 1)
+        
+        #Shuffle batch
+        self.batch_a, self.batch_b = tf.train.shuffle_batch([self.input_a, 
+                                                             self.input_b], 
+                                                            1, 250, 5)
+        
     
     def setup(self):
         self.real_a = tf.placeholder(tf.float32, [1, self.w, self.h, self.c], 
