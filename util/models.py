@@ -50,7 +50,7 @@ def generator(x, nf=32, c=1, scope='gen'):
         g_c6 = conv2d(g_p2, c, 7, stride=1, padding='VALID', 
                       scope='conv6')
         
-        y = tf.nn.tanh(d_conv, name='tanh1')
+        y = tf.nn.tanh(g_c6, name='tanh1')
         return y
 
 def discriminator(x, nf=64, scope='dis'):

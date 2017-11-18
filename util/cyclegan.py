@@ -17,6 +17,7 @@ class CycleGAN:
         self.input_h = 286
         self.w = 256
         self.h = 256
+        self.d = 256
         self.c = 1
         
         #TODO: Maybe make these adjustable? min/max voxels
@@ -63,8 +64,10 @@ class CycleGAN:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        image_a = tf.decode_raw(train_a_file, tf.float32)
-        image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
+                             [self.w, self.h, self.c])
+        image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
+                             [self.w, self.h, self.c])
         
         #Resize without scaling
         self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
@@ -79,8 +82,8 @@ class CycleGAN:
         self.input_b = tf.image.random_flip_left_right(self.input_b)
         
         #Randomly crop
-        self.input_a = tf.random_crop(input_a, [self.h, self.w, self.c])
-        self.input_b = tf.random_crop(input_b, [self.h, self.w, self.c])
+        self.input_a = tf.random_crop(self.input_a, [self.h, self.w, self.c])
+        self.input_b = tf.random_crop(self.input_b, [self.h, self.w, self.c])
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
@@ -109,8 +112,10 @@ class CycleGAN:
         _, train_a_file = reader.read(train_a_queue)
         _, train_b_file = reader.read(train_b_queue)
         
-        image_a = tf.decode_raw(train_a_file, tf.float32)
-        image_b = tf.decode_raw(train_b_file, tf.float32)
+        image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
+                             [self.d, self.w, self.h, self.c])
+        image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
+                             [self.d, self.w, self.h, self.c])
         
         #Resize without scaling
         self.input_a_3d = tf.image.resize_image_with_crop_or_pad(image_a, 
@@ -147,7 +152,8 @@ class CycleGAN:
                                           [None, self.w, self.h, self.c], 
                                           name='fake_pool_b')
         
-        self.global_step = slim.get_or_create_global_step()
+        #self.global_step = slim.get_or_create_global_step()
+        self.global_step = 0
         self.n_fake = 0
         self.lr = tf.placeholder(tf.float32, shape=[], name='lr')
         
@@ -176,8 +182,8 @@ class CycleGAN:
             scope.reuse_variables()
             
             #Fake pool for discriminator loss
-            self.p_fake_pool_a = discriminator(self.fake_pool_a, 'd_a')
-            self.p_fake_pool_b = discriminator(self.fake_pool_b, 'd_b')
+            self.p_fake_pool_a = discriminator(self.fake_pool_a, scope='d_a')
+            self.p_fake_pool_b = discriminator(self.fake_pool_b, scope='d_b')
     
     def loss(self):
         #Cycle consistency loss
@@ -200,10 +206,10 @@ class CycleGAN:
         
         #Isolate variables
         self.vars = tf.trainable_variables()
-        d_a_vars = [var for v in self.vars if 'd_a' in v.name]
-        d_b_vars = [var for v in self.vars if 'd_b' in v.name]
-        g_a_vars = [var for v in self.vars if 'g_a' in v.name]
-        g_b_vars = [var for v in self.vars if 'g_b' in v.name]
+        d_a_vars = [v for v in self.vars if 'd_a' in v.name]
+        d_b_vars = [v for v in self.vars if 'd_b' in v.name]
+        g_a_vars = [v for v in self.vars if 'g_a' in v.name]
+        g_b_vars = [v for v in self.vars if 'g_b' in v.name]
         
         #Train while freezing other variables
         self.d_a_train = optimizer.minimize(d_a_loss, var_list=d_a_vars)
@@ -256,9 +262,11 @@ class CycleGAN:
         
         with tf.Session() as sess:
             sess.run(init)
+            
             if self.restore_ckpt:
                 ckpt_name = tf.train.latest_checkpoint(self.ckpt_dir)
                 saver.restore(sess, ckpt_name)
+                #TODO: parse checkpoint file for initial global_step
             if not os.path.exists(self.train_output):
                 os.makedirs(self.train_output)
             writer = tf.summary.FileWriter(self.train_output)
@@ -266,7 +274,8 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             
-            for epoch in range(sess.run(global_step), self.max_step):
+            #for epoch in range(sess.run(self.global_step), self.max_step):
+            for epoch in range(self.global_step, self.max_step):
                 saver.save(sess, self.ckpt_dir, global_step=epoch)
                 
                 if epoch < 100:
@@ -276,7 +285,7 @@ class CycleGAN:
                 
                 #TODO: Save training images
                 
-                for i in range(0, self.n_train):
+                for i in range(0, sess.run(self.n_train)):
                     print('Epoch {} Image {}/{}'.format(epoch, i, self.n_train))
                     inputs = sess.run([self.input_a, self.input_b, 
                                        self.batch_a, self.batch_b])
@@ -323,7 +332,8 @@ class CycleGAN:
                     writer.flush()
                     self.n_fake += 1
                     
-                sess.run(tf.assign(self.global_step, epoch + 1))
+                #sess.run(tf.assign(self.global_step, epoch + 1))
+                self.global_step += 1
                 
             coord.request_stop()
             coord.join(threads)
