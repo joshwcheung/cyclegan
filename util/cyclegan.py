@@ -152,7 +152,8 @@ class CycleGAN:
                                           [None, self.w, self.h, self.c], 
                                           name='fake_pool_b')
         
-        self.global_step = slim.get_or_create_global_step()
+        #self.global_step = slim.get_or_create_global_step()
+        self.global_step = 0
         self.n_fake = 0
         self.lr = tf.placeholder(tf.float32, shape=[], name='lr')
         
@@ -261,9 +262,11 @@ class CycleGAN:
         
         with tf.Session() as sess:
             sess.run(init)
+            
             if self.restore_ckpt:
                 ckpt_name = tf.train.latest_checkpoint(self.ckpt_dir)
                 saver.restore(sess, ckpt_name)
+                #TODO: parse checkpoint file for initial global_step
             if not os.path.exists(self.train_output):
                 os.makedirs(self.train_output)
             writer = tf.summary.FileWriter(self.train_output)
@@ -271,7 +274,8 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             
-            for epoch in range(sess.run(self.global_step), self.max_step):
+            #for epoch in range(sess.run(self.global_step), self.max_step):
+            for epoch in range(self.global_step, self.max_step):
                 saver.save(sess, self.ckpt_dir, global_step=epoch)
                 
                 if epoch < 100:
@@ -328,7 +332,8 @@ class CycleGAN:
                     writer.flush()
                     self.n_fake += 1
                     
-                sess.run(tf.assign(self.global_step, epoch + 1))
+                #sess.run(tf.assign(self.global_step, epoch + 1))
+                self.global_step += 1
                 
             coord.request_stop()
             coord.join(threads)
