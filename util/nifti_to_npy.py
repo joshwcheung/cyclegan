@@ -39,10 +39,10 @@ for x in ('pre', 'post'):
         np.save(os.path.join(whole_path, subj_name), data)
         
         #Save slices as .npy
-        for i in range(data.shape[-1]):
+        for i in range(data.shape[0]):
             slice_name = '{:s}-{:03d}'.format(subj_name, i)
             np.save(os.path.join(slices_path, slice_name), 
-                    data[:, :, i, :])
+                    data[i, :, :, :])
 
 print('Done.')
 
