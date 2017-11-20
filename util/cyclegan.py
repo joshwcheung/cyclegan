@@ -58,43 +58,8 @@ class CycleGAN:
         self.n_train_b = tf.size(train_b_names)
         self.n_train = tf.maximum(self.n_train_a, self.n_train_b)
         
-        #train_a_queue = tf.train.string_input_producer(train_a_names)
-        #train_b_queue = tf.train.string_input_producer(train_b_names)
-        
-        #reader = tf.WholeFileReader()
-        #_, train_a_file = reader.read(train_a_queue)
-        #_, train_b_file = reader.read(train_b_queue)
-        
-        #image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
-        #                     [self.w, self.h, self.c])
-        #image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
-        #                     [self.w, self.h, self.c])
-        
         image_a = read_from_tfrecord(train_a_names)
         image_b = read_from_tfrecord(train_b_names)
-        
-        #train_a_queue = tf.train.string_input_producer(train_a_names)
-        #train_b_queue = tf.train.string_input_producer(train_b_names)
-        
-        #reader = tf.TFRecordReader()
-        #_, train_a_file = reader.read(train_a_queue)
-        #_, train_b_file = reader.read(train_b_queue)
-        
-        #features = {'shape': tf.FixedLenFeature([], tf.string), 
-        #            'array': tf.FixedLenFeature([], tf.string)}
-        #features_a = tf.parse_single_example(train_a_file, features=features, 
-        #                                     name='features_a')
-        #features_b = tf.parse_single_example(train_b_file, features=features, 
-        #                                     name='features_b')
-        
-        #image_a = tf.decode_raw(features_a['array'], tf.float32)
-        #image_b = tf.decode_raw(features_b['array'], tf.float32)
-        
-        #shape_a = tf.decode_raw(features_a['shape'], tf.int32)
-        #shape_b = tf.decode_raw(features_b['shape'], tf.int32)
-        
-        #image_a = tf.reshape(image_a, shape_a)
-        #image_b = tf.reshape(image_b, shape_b)
         
         #Resize without scaling
         self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
