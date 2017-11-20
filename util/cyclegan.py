@@ -158,18 +158,18 @@ class CycleGAN:
             self.p_real_b = discriminator(self.real_b, scope='d_b')
             
             #G(A), G(B)
-            self.fake_b = generator(self.real_a, c=self.c, scope='g_a')
-            self.fake_a = generator(self.real_b, c=self.c, scope='g_b')
+            self.fake_img_b = generator(self.real_a, c=self.c, scope='g_a')
+            self.fake_img_a = generator(self.real_b, c=self.c, scope='g_b')
             
             scope.reuse_variables()
             
             #D(G(B)), D(G(A))
-            self.p_fake_a = discriminator(self.fake_a, scope='d_a')
-            self.p_fake_b = discriminator(self.fake_b, scope='d_b')
+            self.p_fake_a = discriminator(self.fake_img_a, scope='d_a')
+            self.p_fake_b = discriminator(self.fake_img_b, scope='d_b')
             
             #G(G(A)), G(G(B))
-            self.cycle_a = generator(self.fake_b, scope='g_b')
-            self.cycle_b = generator(self.fake_a, scope='g_a')
+            self.cycle_a = generator(self.fake_img_b, scope='g_b')
+            self.cycle_b = generator(self.fake_img_a, scope='g_a')
             
             scope.reuse_variables()
             
@@ -237,7 +237,8 @@ class CycleGAN:
                                self.batch_a_3d, self.batch_b_3d])
             _, _, batch_a, batch_b = inputs
             fake_a_temp, fake_b_temp, cyc_a_temp, cyc_b_temp = \
-                sess.run([self.fake_a, self.fake_b, self.cycle_a, self.cycle_b],
+                sess.run([self.fake_img_a, self.fake_img_b, 
+                          self.cycle_a, self.cycle_b],
                          feed_dict={self.real_a: batch_a, self.real_b: batch_b})
             tensors = [batch_a, batch_b, fake_b_temp, fake_a_temp, cyc_a_temp, 
                        cyc_b_temp]
@@ -285,7 +286,7 @@ class CycleGAN:
                     input_a, input_b, batch_a, batch_b = inputs
                     
                     #Optimize G_A
-                    run_list = [self.g_a_train, self.fake_b, 
+                    run_list = [self.g_a_train, self.fake_img_b, 
                                 self.g_a_loss_summary]
                     feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
                                  self.lr: current_lr}
@@ -304,7 +305,7 @@ class CycleGAN:
                     writer.add_summary(summary, epoch * total + i)
                     
                     #Optimize G_B
-                    run_list = [self.g_b_train, self.fake_a, 
+                    run_list = [self.g_b_train, self.fake_img_a, 
                                 self.g_b_loss_summary]
                     feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
                                  self.lr: current_lr}
