@@ -250,16 +250,16 @@ class CycleGAN:
         self.g_a_loss_summary = tf.summary.scalar('g_a_loss', g_a_loss)
         self.g_b_loss_summary = tf.summary.scalar('g_b_loss', g_b_loss)
     
-    def fake_pool(self, fake, fake_pool):
+    def fake_pool(self, fake, pool):
         if self.n_fake < self.pool_size:
-            fake_pool[self.n_fake] = fake
+            pool[self.n_fake] = fake
             return fake
         else:
             p = random.random()
             if p < 0.5:
                 index = random.randint(0, self.pool_size - 1)
-                temp = fake_pool[index]
-                fake_pool[index] = fake
+                temp = pool[index]
+                pool[index] = fake
                 return temp
             else:
                 return fake
