@@ -41,10 +41,11 @@ class CycleGAN:
         self.base_lr = 0.0002
         self.max_step = 200
         self.n_save = 1
+        self.batch_size = 1
         
         #Initalize fake images
-        self.fake_a = np.zeros((self.pool_size, 1, self.w, self.h, self.c))
-        self.fake_b = np.zeros((self.pool_size, 1, self.w, self.h, self.c))
+        self.fake_a = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
+        self.fake_b = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
     
     def input_setup(self):
         input_dir = os.path.join('../datasets/', self.name)
@@ -84,59 +85,17 @@ class CycleGAN:
         self.input_b = tf.subtract(tf.divide(tf.subtract(self.input_b, 
                                                          self.min), denom), 1)
         
-        #Shuffle batch
-        self.batch_a, self.batch_b = tf.train.shuffle_batch([self.input_a, 
-                                                             self.input_b], 
-                                                            1, 5000, 100)
-    
-    def input_setup_3d(self):
-        input_dir = os.path.join('../datasets/', self.name)
-        train_a_dir = os.path.join(input_dir, 'trainA_whole', '*.tfrecord')
-        train_b_dir = os.path.join(input_dir, 'trainB_whole', '*.tfrecord')
-        
-        train_a_names = tf.train.match_filenames_once(train_a_dir)
-        train_b_names = tf.train.match_filenames_once(train_b_dir)
-        
-        train_a_queue = tf.train.string_input_producer(train_a_names)
-        train_b_queue = tf.train.string_input_producer(train_b_names)
-        
-        reader = tf.WholeFileReader()
-        _, train_a_file = reader.read(train_a_queue)
-        _, train_b_file = reader.read(train_b_queue)
-        
-        image_a = tf.reshape(tf.decode_raw(train_a_file, tf.float32), 
-                             [self.d, self.w, self.h, self.c])
-        image_b = tf.reshape(tf.decode_raw(train_b_file, tf.float32), 
-                             [self.d, self.w, self.h, self.c])
-        
-        #Resize without scaling
-        self.input_a_3d = tf.image.resize_image_with_crop_or_pad(image_a, 
-                                                                 self.h, 
-                                                                 self.w)
-        self.input_b_3d = tf.image.resize_image_with_crop_or_pad(image_b, 
-                                                                 self.h, 
-                                                                 self.w)
-        
-        #Normalize values: -1 to 1
-        denom = (self.max - self.min) / 2
-        self.input_a_3d = \
-            tf.subtract(tf.divide(tf.subtract(self.input_a_3d, 
-                                              self.min), denom), 1)
-        self.input_b_3d = \
-            tf.subtract(tf.divide(tf.subtract(self.input_b_3d, 
-                                              self.min), denom), 1)
-        
-        #Shuffle batch
-        self.batch_a_3d, self.batch_b_3d = \
-            tf.train.shuffle_batch([self.input_a_3d, self.input_b_3d], 
-                                   1, 250, 5)
-        
+        #Reshape to batch_size, h, w, c
+        self.input_a = tf.reshape(self.input_a, [1, self.h, self.w, self.c])
+        self.input_b = tf.reshape(self.input_b, [1, self.h, self.w, self.c])
     
     def setup(self):
-        self.real_a = tf.placeholder(tf.float32, [1, self.w, self.h, self.c], 
-                                      name='input_a')
-        self.real_b = tf.placeholder(tf.float32, [1, self.w, self.h, self.c], 
-                                      name='input_b')
+        self.real_a = tf.placeholder(tf.float32, 
+                                     [self.batch_size, self.w, self.h, self.c], 
+                                     name='input_a')
+        self.real_b = tf.placeholder(tf.float32, 
+                                     [self.batch_size, self.w, self.h, self.c], 
+                                     name='input_b')
         self.fake_pool_a = tf.placeholder(tf.float32, 
                                           [None, self.w, self.h, self.c], 
                                           name='fake_pool_a')
@@ -144,8 +103,7 @@ class CycleGAN:
                                           [None, self.w, self.h, self.c], 
                                           name='fake_pool_b')
         
-        #self.global_step = slim.get_or_create_global_step()
-        self.global_step = 0
+        self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.n_fake = 0
         self.lr = tf.placeholder(tf.float32, shape=[], name='lr')
         
@@ -168,8 +126,8 @@ class CycleGAN:
             self.p_fake_b = discriminator(self.fake_img_b, scope='d_b')
             
             #G(G(A)), G(G(B))
-            self.cycle_a = generator(self.fake_img_b, scope='g_b')
-            self.cycle_b = generator(self.fake_img_a, scope='g_a')
+            self.cycle_a = generator(self.fake_img_b, c=self.c, scope='g_b')
+            self.cycle_b = generator(self.fake_img_a, c=self.c, scope='g_a')
             
             scope.reuse_variables()
             
@@ -246,7 +204,6 @@ class CycleGAN:
     
     def train(self):
         self.input_setup()
-        self.input_setup_3d()
         self.setup()
         self.loss()
         init = (tf.global_variables_initializer(), 
@@ -259,7 +216,6 @@ class CycleGAN:
             if self.restore_ckpt:
                 ckpt_name = tf.train.latest_checkpoint(self.ckpt_dir)
                 saver.restore(sess, ckpt_name)
-                #TODO: parse checkpoint file for initial global_step
             if not os.path.exists(self.train_output):
                 os.makedirs(self.train_output)
             writer = tf.summary.FileWriter(self.train_output)
@@ -267,8 +223,7 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             
-            #for epoch in range(sess.run(self.global_step), self.max_step):
-            for epoch in range(self.global_step, self.max_step):
+            for epoch in range(sess.run(self.global_step), self.max_step):
                 saver.save(sess, self.ckpt_dir, global_step=epoch)
                 
                 if epoch < 100:
@@ -280,15 +235,15 @@ class CycleGAN:
                 
                 total = sess.run(self.n_train)
                 for i in range(0, total):
-                    print('Epoch {}: Image {}/{}'.format(epoch, i, total))
-                    inputs = sess.run([self.input_a, self.input_b, 
-                                       self.batch_a, self.batch_b])
-                    input_a, input_b, batch_a, batch_b = inputs
+                    if i % 100 == 0:
+                        print('Epoch {}: Image {}/{}'.format(epoch, i, total))
+                    
+                    input_a, input_b = sess.run([self.input_a, self.input_b])
                     
                     #Optimize G_A
                     run_list = [self.g_a_train, self.fake_img_b, 
                                 self.g_a_loss_summary]
-                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                    feed_dict = {self.real_a: input_a, self.real_b: input_b, 
                                  self.lr: current_lr}
                     _, fake_b_temp, summary = sess.run(run_list, feed_dict)
                     writer.add_summary(summary, epoch * total + i)
@@ -298,7 +253,7 @@ class CycleGAN:
                     
                     #Optimize D_B
                     run_list = [self.d_b_train, self.d_b_loss_summary]
-                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                    feed_dict = {self.real_a: input_a, self.real_b: input_b, 
                                  self.lr: current_lr, 
                                  self.fake_pool_b: fake_b_sample}
                     _, summary = sess.run(run_list, feed_dict)
@@ -307,7 +262,7 @@ class CycleGAN:
                     #Optimize G_B
                     run_list = [self.g_b_train, self.fake_img_a, 
                                 self.g_b_loss_summary]
-                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                    feed_dict = {self.real_a: input_a, self.real_b: input_b, 
                                  self.lr: current_lr}
                     _, fake_a_temp, summary = sess.run(run_list, feed_dict)
                     writer.add_summary(summary, epoch * total + i)
@@ -317,7 +272,7 @@ class CycleGAN:
                     
                     #Optimize D_A
                     run_list = [self.d_a_train, self.d_a_loss_summary]
-                    feed_dict = {self.real_a: batch_a, self.real_b: batch_b, 
+                    feed_dict = {self.real_a: input_a, self.real_b: input_b, 
                                  self.lr: current_lr, 
                                  self.fake_pool_a: fake_a_sample}
                     _, summary = sess.run(run_list, feed_dict)
@@ -326,15 +281,13 @@ class CycleGAN:
                     writer.flush()
                     self.n_fake += 1
                     
-                #sess.run(tf.assign(self.global_step, epoch + 1))
-                self.global_step += 1
+                sess.run(tf.assign(self.global_step, epoch + 1))
                 
             coord.request_stop()
             coord.join(threads)
             writer.add_graph(sess.graph)
     
     def test(self, filename):
-        self.input_setup_3d()
         self.setup()
         
         saver = tf.train.Saver()
