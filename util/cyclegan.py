@@ -2,9 +2,9 @@ import numpy as np
 import os
 import random
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
 
 from datetime import datetime
+from glob import glob
 
 from loss import *
 from models import *
@@ -40,12 +40,23 @@ class CycleGAN:
         self.pool_size = 50
         self.base_lr = 0.0002
         self.max_step = 200
-        self.n_save = 1
+        self.save_training_images = True
+        self.n_save = 4
         self.batch_size = 1
         
         #Initalize fake images
         self.fake_a = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
         self.fake_b = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
+        
+        #Training/Testing paired subjects
+        train_ids = np.concatenate((np.arange(20, 42), np.arange(43, 52), 
+                                    np.arange(53, 55)))
+        test_ids = np.concatenate((np.arange(1, 3), np.arange(4, 12)))
+        
+        train_ids = ['{:02d}'.format(i) for i in train_ids]
+        test_ids = ['{:02d}'.format(i) for i in test_ids]
+        
+        self.ids = {'train': train_ids, 'test': test_ids}
     
     def input_setup(self):
         input_dir = os.path.join('../datasets/', self.name)
@@ -190,17 +201,90 @@ class CycleGAN:
     def save_train_images(self, sess, epoch):
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
-        for i in range(0, self.n_save):
-            inputs = sess.run([self.input_a_3d, self.input_b_3d, 
-                               self.batch_a_3d, self.batch_b_3d])
-            _, _, batch_a, batch_b = inputs
-            fake_a_temp, fake_b_temp, cyc_a_temp, cyc_b_temp = \
-                sess.run([self.fake_img_a, self.fake_img_b, 
-                          self.cycle_a, self.cycle_b],
-                         feed_dict={self.real_a: batch_a, self.real_b: batch_b})
-            tensors = [batch_a, batch_b, fake_b_temp, fake_a_temp, cyc_a_temp, 
-                       cyc_b_temp]
-            #TODO: Save the image
+        
+        #Choose random subjects to save training images for
+        train_ids = random.sample(self.ids['train'], self.n_save)
+        train_path_a = [os.path.join('../datasets/', self.name, 
+                                     'trainA', 
+                                     '{:s}*.tfrecord'.format(x)) 
+                        for x in train_ids]
+        train_path_b = [os.path.join('../datasets/', self.name, 
+                                     'trainB', 
+                                     '{:s}*.tfrecord'.format(x)) 
+                        for x in train_ids]
+        
+        #Save G(A), G(G(A))
+        for path in train_path_a:
+            a_names = glob(path)
+            n_a = len(a_names)
+            img_a = read_from_tfrecord(a_names, shuffle=False)
+            
+            #Normalize values: -1 to 1
+            denom = (self.max - self.min) / 2
+            img_a = tf.subtract(tf.divide(tf.subtract(img_a, self.min), denom), 
+                                1)
+            
+            #Reshape to 1, h, w, c
+            img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
+            
+            for i in range(n_a):
+                basename = os.path.splitext(os.path.basename(a_names[i]))[0]
+                print('checkpoint 1')
+                in_a = sess.run(img_a)
+                print('checkpoint 2')
+                run_list = [self.fake_img_b, self.cycle_a]
+                feed_dict = {self.real_a: in_a}
+                print('checkpoint 3')
+                fake_b_tmp, cyc_a_tmp = sess.run(run_list, feed_dict=feed_dict)
+                print('checkpoint 4')
+                #De-normalize
+                fake_b_tmp = ((fake_b_tmp + 1) / 2 * (self.max - self.min) + 
+                              self.min)
+                cyc_a_tmp = ((cyc_a_tmp + 1) / 2 * (self.max - self.min) + 
+                             self.min)
+                print('checkpoint 5')
+                #Save as .npy
+                fake_b_name = 'epoch_{:d}_fake_b_{:s}'.format(epoch, basename)
+                cyc_a_name = 'epoch_{:d}_cyc_a_{:s}'.format(epoch, basename)
+                fake_b_path = os.path.join(self.img_dir, fake_b_name)
+                cyc_a_path = os.path.join(self.img_dir, cyc_a_name)
+                np.save(fake_b_path, fake_b_tmp)
+                np.save(cyc_a_path, cyc_a_tmp)
+        
+        #Save G(B), G(G(B))
+        for path in train_path_b:
+            b_names = glob(path)
+            n_b = len(b_names)
+            img_b = read_from_tfrecord(b_names, shuffle=False)
+            
+            #Normalize values: -1 to 1
+            denom = (self.max - self.min) / 2
+            img_b = tf.subtract(tf.divide(tf.subtract(img_b, self.min), denom), 
+                                1)
+            
+            #Reshape to 1, h, w, c
+            img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
+            
+            for i in range(n_b):
+                basename = os.path.splitext(os.path.basename(b_names[i]))[0]
+                in_b = sess.run(img_b)
+                run_list = [self.fake_img_a, self.cycle_b]
+                feed_dict = {self.real_b: in_b}
+                fake_a_tmp, cyc_b_tmp = sess.run(run_list, feed_dict=feed_dict)
+                
+                #De-normalize
+                fake_a_tmp = ((fake_a_tmp + 1) / 2 * (self.max - self.min) + 
+                              self.min)
+                cyc_b_tmp = ((cyc_b_tmp + 1) / 2 * (self.max - self.min) + 
+                             self.min)
+                
+                #Save as .npy
+                fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, basename)
+                cyc_b_name = 'epoch_{:d}_cyc_b_{:s}'.format(epoch, basename)
+                fake_a_path = os.path.join(self.img_dir, fake_a_name)
+                cyc_b_path = os.path.join(self.img_dir, cyc_b_name)
+                np.save(fake_a_path, fake_a_tmp)
+                np.save(cyc_b_path, cyc_b_tmp)
     
     def train(self):
         self.input_setup()
@@ -231,7 +315,8 @@ class CycleGAN:
                 else:
                     current_lr = self.base_lr - self.base_lr * (epoch - 100)/100
                 
-                #TODO: Save training images
+                if self.save_training_images:
+                    self.save_train_images(sess, epoch)
                 
                 total = sess.run(self.n_train)
                 for i in range(0, total):

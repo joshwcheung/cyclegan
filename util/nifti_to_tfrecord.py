@@ -19,8 +19,9 @@ def write_to_tfrecord(array, tfrecord_file):
     writer.write(example.SerializeToString())
     writer.close()
 
-def read_from_tfrecord(filenames):
-    queue = tf.train.string_input_producer(filenames, name='queue')
+def read_from_tfrecord(filenames, shuffle=True):
+    queue = tf.train.string_input_producer(filenames, shuffle=shuffle, 
+                                           name='queue')
     reader = tf.TFRecordReader()
     _, record = reader.read(queue)
     
