@@ -5,9 +5,9 @@ import tensorflow as tf
 
 from datetime import datetime
 
-from loss import *
 from models import *
-from nifti_to_tfrecord import read_from_tfrecord
+from util.loss import *
+from util.nifti_to_tfrecord import read_from_tfrecord
 
 class CycleGAN:
     def __init__(self):
@@ -30,7 +30,7 @@ class CycleGAN:
         
         #File paths
         self.name = 'gad'
-        self.train_output = os.path.join('../train/', self.name, current_time)
+        self.train_output = os.path.join('train/', self.name, current_time)
         self.ckpt_dir = os.path.join(self.train_output, 'checkpoints')
         self.img_dir = os.path.join(self.train_output, 'images')
         
@@ -58,7 +58,7 @@ class CycleGAN:
         self.ids = {'train': train_ids, 'test': test_ids}
     
     def input_setup(self):
-        input_dir = os.path.join('../datasets/', self.name)
+        input_dir = os.path.join('datasets/', self.name)
         train_a_dir = os.path.join(input_dir, 'trainA', '*.tfrecord')
         train_b_dir = os.path.join(input_dir, 'trainB', '*.tfrecord')
         
@@ -100,10 +100,10 @@ class CycleGAN:
     def save_train_images_setup(self):
         #Choose random subjects to save training images for
         self.train_ids = random.sample(self.ids['train'], self.n_save)
-        train_a_path = [os.path.join('../datasets/', self.name, 'trainA', 
+        train_a_path = [os.path.join('datasets/', self.name, 'trainA', 
                                      '{:s}*.tfrecord'.format(x)) 
                         for x in self.train_ids]
-        train_b_path = [os.path.join('../datasets/', self.name, 'trainB', 
+        train_b_path = [os.path.join('datasets/', self.name, 'trainB', 
                                      '{:s}*.tfrecord'.format(x)) 
                         for x in self.train_ids]
         

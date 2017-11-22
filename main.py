@@ -1,4 +1,4 @@
-from cyclegan import CycleGAN
+from models.cyclegan import CycleGAN
 
 def main():
     cyclegan = CycleGAN()
