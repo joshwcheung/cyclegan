@@ -4,7 +4,6 @@ import random
 import tensorflow as tf
 
 from datetime import datetime
-from glob import glob
 
 from loss import *
 from models import *
@@ -41,7 +40,7 @@ class CycleGAN:
         self.base_lr = 0.0002
         self.max_step = 200
         self.save_training_images = True
-        self.n_save = 4
+        self.n_save = 1
         self.batch_size = 1
         
         #Initalize fake images
@@ -74,31 +73,60 @@ class CycleGAN:
         image_b = read_from_tfrecord(train_b_names)
         
         #Resize without scaling
-        self.input_a = tf.image.resize_image_with_crop_or_pad(image_a, 
-                                                              self.input_h, 
-                                                              self.input_w)
-        self.input_b = tf.image.resize_image_with_crop_or_pad(image_b, 
-                                                              self.input_h, 
-                                                              self.input_w)
+        image_a = tf.image.resize_image_with_crop_or_pad(image_a, self.input_h, 
+                                                         self.input_w)
+        image_b = tf.image.resize_image_with_crop_or_pad(image_b, self.input_h, 
+                                                         self.input_w)
         
         #Randomly flip
-        self.input_a = tf.image.random_flip_left_right(self.input_a)
-        self.input_b = tf.image.random_flip_left_right(self.input_b)
+        image_a = tf.image.random_flip_left_right(image_a)
+        image_b = tf.image.random_flip_left_right(image_b)
         
         #Randomly crop
-        self.input_a = tf.random_crop(self.input_a, [self.h, self.w, self.c])
-        self.input_b = tf.random_crop(self.input_b, [self.h, self.w, self.c])
+        image_a = tf.random_crop(image_a, [self.h, self.w, self.c])
+        image_b = tf.random_crop(image_b, [self.h, self.w, self.c])
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
-        self.input_a = tf.subtract(tf.divide(tf.subtract(self.input_a, 
-                                                         self.min), denom), 1)
-        self.input_b = tf.subtract(tf.divide(tf.subtract(self.input_b, 
-                                                         self.min), denom), 1)
+        image_a = tf.subtract(tf.divide(tf.subtract(image_a, self.min), denom), 
+                              1)
+        image_b = tf.subtract(tf.divide(tf.subtract(image_b, self.min), denom), 
+                              1)
         
         #Reshape to batch_size, h, w, c
-        self.input_a = tf.reshape(self.input_a, [1, self.h, self.w, self.c])
-        self.input_b = tf.reshape(self.input_b, [1, self.h, self.w, self.c])
+        self.input_a = tf.reshape(image_a, [1, self.h, self.w, self.c])
+        self.input_b = tf.reshape(image_b, [1, self.h, self.w, self.c])
+    
+    def save_train_images_setup(self):
+        #Choose random subjects to save training images for
+        self.train_ids = random.sample(self.ids['train'], self.n_save)
+        train_a_path = [os.path.join('../datasets/', self.name, 'trainA', 
+                                     '{:s}*.tfrecord'.format(x)) 
+                        for x in self.train_ids]
+        train_b_path = [os.path.join('../datasets/', self.name, 'trainB', 
+                                     '{:s}*.tfrecord'.format(x)) 
+                        for x in self.train_ids]
+        
+        a_names = tf.train.match_filenames_once(train_a_path)
+        b_names = tf.train.match_filenames_once(train_b_path)
+        
+        img_a = read_from_tfrecord(a_names, shuffle=False)
+        img_b = read_from_tfrecord(b_names, shuffle=False)
+        
+        #Resize without scaling
+        img_a = tf.image.resize_image_with_crop_or_pad(img_a, self.h, self.w)
+        img_b = tf.image.resize_image_with_crop_or_pad(img_b, self.h, self.w)
+        
+        #Normalize values: -1 to 1
+        denom = (self.max - self.min) / 2
+        img_a = tf.subtract(tf.divide(tf.subtract(img_a, self.min), denom), 1)
+        img_b = tf.subtract(tf.divide(tf.subtract(img_b, self.min), denom), 1)
+        
+        #Reshape to 1, h, w, c
+        self.img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
+        self.img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
+        
+        return a_names, b_names
     
     def setup(self):
         self.real_a = tf.placeholder(tf.float32, 
@@ -198,98 +226,66 @@ class CycleGAN:
             else:
                 return fake
     
-    def save_train_images(self, sess, epoch):
+    def save_train_images(self, sess, epoch, a_names, b_names):
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
         
-        #Choose random subjects to save training images for
-        train_ids = random.sample(self.ids['train'], self.n_save)
-        train_path_a = [os.path.join('../datasets/', self.name, 
-                                     'trainA', 
-                                     '{:s}*.tfrecord'.format(x)) 
-                        for x in train_ids]
-        train_path_b = [os.path.join('../datasets/', self.name, 
-                                     'trainB', 
-                                     '{:s}*.tfrecord'.format(x)) 
-                        for x in train_ids]
+        run_list = [a_names, b_names, tf.size(a_names), tf.size(b_names)]
+        a_names_list, b_names_list, n_a, n_b = sess.run(run_list)
         
         #Save G(A), G(G(A))
-        for path in train_path_a:
-            a_names = glob(path)
-            n_a = len(a_names)
-            img_a = read_from_tfrecord(a_names, shuffle=False)
+        for i in range(n_a):
+            a_name = os.path.splitext(os.path.basename(a_names_list[i]))[0]
+            in_a = sess.run(self.img_a)
+            run_list = [self.fake_img_b, self.cycle_a]
+            feed_dict = {self.real_a: in_a}
+            fake_b_tmp, cyc_a_tmp = sess.run(run_list, feed_dict=feed_dict)
             
-            #Normalize values: -1 to 1
-            denom = (self.max - self.min) / 2
-            img_a = tf.subtract(tf.divide(tf.subtract(img_a, self.min), denom), 
-                                1)
+            #De-normalize
+            fake_b_tmp = ((fake_b_tmp + 1) / 2 * (self.max - self.min) + 
+                          self.min)
+            cyc_a_tmp = ((cyc_a_tmp + 1) / 2 * (self.max - self.min) + 
+                         self.min)
             
-            #Reshape to 1, h, w, c
-            img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
-            
-            for i in range(n_a):
-                basename = os.path.splitext(os.path.basename(a_names[i]))[0]
-                print('checkpoint 1')
-                in_a = sess.run(img_a)
-                print('checkpoint 2')
-                run_list = [self.fake_img_b, self.cycle_a]
-                feed_dict = {self.real_a: in_a}
-                print('checkpoint 3')
-                fake_b_tmp, cyc_a_tmp = sess.run(run_list, feed_dict=feed_dict)
-                print('checkpoint 4')
-                #De-normalize
-                fake_b_tmp = ((fake_b_tmp + 1) / 2 * (self.max - self.min) + 
-                              self.min)
-                cyc_a_tmp = ((cyc_a_tmp + 1) / 2 * (self.max - self.min) + 
-                             self.min)
-                print('checkpoint 5')
-                #Save as .npy
-                fake_b_name = 'epoch_{:d}_fake_b_{:s}'.format(epoch, basename)
-                cyc_a_name = 'epoch_{:d}_cyc_a_{:s}'.format(epoch, basename)
-                fake_b_path = os.path.join(self.img_dir, fake_b_name)
-                cyc_a_path = os.path.join(self.img_dir, cyc_a_name)
-                np.save(fake_b_path, fake_b_tmp)
-                np.save(cyc_a_path, cyc_a_tmp)
+            #Save as .npy
+            fake_b_name = 'epoch_{:d}_fake_b_{:s}'.format(epoch, a_name)
+            cyc_a_name = 'epoch_{:d}_cyc_a_{:s}'.format(epoch, a_name)
+            fake_b_path = os.path.join(self.img_dir, fake_b_name)
+            cyc_a_path = os.path.join(self.img_dir, cyc_a_name)
+            np.save(fake_b_path, fake_b_tmp)
+            np.save(cyc_a_path, cyc_a_tmp)
         
         #Save G(B), G(G(B))
-        for path in train_path_b:
-            b_names = glob(path)
-            n_b = len(b_names)
-            img_b = read_from_tfrecord(b_names, shuffle=False)
+        for i in range(n_b):
+            b_name = os.path.splitext(os.path.basename(b_names_list[i]))[0]
+            in_b = sess.run(self.img_b)
+            run_list = [self.fake_img_a, self.cycle_b]
+            feed_dict = {self.real_b: in_b}
+            fake_a_tmp, cyc_b_tmp = sess.run(run_list, feed_dict=feed_dict)
             
-            #Normalize values: -1 to 1
-            denom = (self.max - self.min) / 2
-            img_b = tf.subtract(tf.divide(tf.subtract(img_b, self.min), denom), 
-                                1)
+            #De-normalize
+            fake_a_tmp = ((fake_a_tmp + 1) / 2 * (self.max - self.min) + 
+                          self.min)
+            cyc_b_tmp = ((cyc_b_tmp + 1) / 2 * (self.max - self.min) + 
+                         self.min)
+            print('checkpoint5b')
             
-            #Reshape to 1, h, w, c
-            img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
-            
-            for i in range(n_b):
-                basename = os.path.splitext(os.path.basename(b_names[i]))[0]
-                in_b = sess.run(img_b)
-                run_list = [self.fake_img_a, self.cycle_b]
-                feed_dict = {self.real_b: in_b}
-                fake_a_tmp, cyc_b_tmp = sess.run(run_list, feed_dict=feed_dict)
-                
-                #De-normalize
-                fake_a_tmp = ((fake_a_tmp + 1) / 2 * (self.max - self.min) + 
-                              self.min)
-                cyc_b_tmp = ((cyc_b_tmp + 1) / 2 * (self.max - self.min) + 
-                             self.min)
-                
-                #Save as .npy
-                fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, basename)
-                cyc_b_name = 'epoch_{:d}_cyc_b_{:s}'.format(epoch, basename)
-                fake_a_path = os.path.join(self.img_dir, fake_a_name)
-                cyc_b_path = os.path.join(self.img_dir, cyc_b_name)
-                np.save(fake_a_path, fake_a_tmp)
-                np.save(cyc_b_path, cyc_b_tmp)
+            #Save as .npy
+            fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, b_name)
+            cyc_b_name = 'epoch_{:d}_cyc_b_{:s}'.format(epoch, b_name)
+            fake_a_path = os.path.join(self.img_dir, fake_a_name)
+            cyc_b_path = os.path.join(self.img_dir, cyc_b_name)
+            np.save(fake_a_path, fake_a_tmp)
+            np.save(cyc_b_path, cyc_b_tmp)
     
     def train(self):
         self.input_setup()
         self.setup()
         self.loss()
+        
+        if self.save_training_images:
+            a_names, b_names = self.save_train_images_setup()
+        
         init = (tf.global_variables_initializer(), 
                 tf.local_variables_initializer())
         saver = tf.train.Saver()
@@ -316,7 +312,7 @@ class CycleGAN:
                     current_lr = self.base_lr - self.base_lr * (epoch - 100)/100
                 
                 if self.save_training_images:
-                    self.save_train_images(sess, epoch)
+                    self.save_train_images(sess, epoch, a_names, b_names)
                 
                 total = sess.run(self.n_train)
                 for i in range(0, total):
