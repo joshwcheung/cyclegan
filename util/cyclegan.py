@@ -268,7 +268,6 @@ class CycleGAN:
                           self.min)
             cyc_b_tmp = ((cyc_b_tmp + 1) / 2 * (self.max - self.min) + 
                          self.min)
-            print('checkpoint5b')
             
             #Save as .npy
             fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, b_name)
