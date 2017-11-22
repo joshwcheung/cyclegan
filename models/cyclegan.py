@@ -55,8 +55,7 @@ class CycleGAN:
         #test_ids = np.concatenate((np.arange(1, 3), np.arange(4, 12)))
         train_ids = np.array([1, 2, 4, 5])
         test_ids = np.concatenate((np.arange(6, 19), np.arange(20, 42), 
-                                   np.arange(43, 52), np.arange(53, 55))
-        
+                                   np.arange(43, 52), np.arange(53, 55)))
         
         train_ids = ['{:02d}'.format(i) for i in train_ids]
         test_ids = ['{:02d}'.format(i) for i in test_ids]
