@@ -7,6 +7,7 @@ from datetime import datetime
 
 from models import *
 from util.loss import *
+from util.nifti_to_npy import npy_to_nifti
 from util.nifti_to_tfrecord import read_from_tfrecord
 
 class CycleGAN:
@@ -29,9 +30,10 @@ class CycleGAN:
         self.lambda_b = 10.0
         
         #File paths
-        self.name = 'gad'
+        self.name = 'gad_small'
         self.train_output = os.path.join('train/', self.name, current_time)
         self.ckpt_dir = os.path.join(self.train_output, 'checkpoints')
+        self.npy_dir = os.path.join(self.train_output, 'npy')
         self.img_dir = os.path.join(self.train_output, 'images')
         
         #Training parameters
@@ -48,9 +50,13 @@ class CycleGAN:
         self.fake_b = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
         
         #Training/Testing paired subjects
-        train_ids = np.concatenate((np.arange(20, 42), np.arange(43, 52), 
-                                    np.arange(53, 55)))
-        test_ids = np.concatenate((np.arange(1, 3), np.arange(4, 12)))
+        #train_ids = np.concatenate((np.arange(20, 42), np.arange(43, 52), 
+        #                            np.arange(53, 55)))
+        #test_ids = np.concatenate((np.arange(1, 3), np.arange(4, 12)))
+        train_ids = np.array([1, 2, 4, 5])
+        test_ids = np.concatenate((np.arange(6, 19), np.arange(20, 42), 
+                                   np.arange(43, 52), np.arange(53, 55))
+        
         
         train_ids = ['{:02d}'.format(i) for i in train_ids]
         test_ids = ['{:02d}'.format(i) for i in test_ids]
@@ -125,6 +131,10 @@ class CycleGAN:
         #Reshape to 1, h, w, c
         self.img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
         self.img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
+        
+        #Paths to affines of original images
+        self.affine_a = os.path.join('datasets/', self.name, 'affineA')
+        self.affine_b = os.path.join('datasets/', self.name, 'affineB')
         
         return a_names, b_names
     
@@ -227,6 +237,8 @@ class CycleGAN:
                 return fake
     
     def save_train_images(self, sess, epoch, a_names, b_names):
+        if not os.path.exists(self.npy_dir):
+            os.makedirs(self.npy_dir)
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
         
@@ -250,8 +262,8 @@ class CycleGAN:
             #Save as .npy
             fake_b_name = 'epoch_{:d}_fake_b_{:s}'.format(epoch, a_name)
             cyc_a_name = 'epoch_{:d}_cyc_a_{:s}'.format(epoch, a_name)
-            fake_b_path = os.path.join(self.img_dir, fake_b_name)
-            cyc_a_path = os.path.join(self.img_dir, cyc_a_name)
+            fake_b_path = os.path.join(self.npy_dir, fake_b_name)
+            cyc_a_path = os.path.join(self.npy_dir, cyc_a_name)
             np.save(fake_b_path, fake_b_tmp)
             np.save(cyc_a_path, cyc_a_tmp)
         
@@ -272,10 +284,21 @@ class CycleGAN:
             #Save as .npy
             fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, b_name)
             cyc_b_name = 'epoch_{:d}_cyc_b_{:s}'.format(epoch, b_name)
-            fake_a_path = os.path.join(self.img_dir, fake_a_name)
-            cyc_b_path = os.path.join(self.img_dir, cyc_b_name)
+            fake_a_path = os.path.join(self.npy_dir, fake_a_name)
+            cyc_b_path = os.path.join(self.npy_dir, cyc_b_name)
             np.save(fake_a_path, fake_a_tmp)
             np.save(cyc_b_path, cyc_b_tmp)
+        
+        #Save as nifti
+        for subject in self.train_ids:
+            npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
+                         'epoch_{:d}_fake_b_{:s}'.format(epoch, subject))
+            npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
+                         'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
+            npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
+                         'epoch_{:d}_cyc_a_{:s}'.format(epoch, subject))
+            npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
+                         'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
     
     def train(self):
         self.input_setup()
