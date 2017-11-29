@@ -324,7 +324,7 @@ class CycleGAN:
             sess.run(init)
             
             if self.restore_ckpt:
-                ckpt_name = tf.train.latest_checkpoint(self.ckpt_dir)
+                ckpt_name = tf.train.latest_checkpoint(self.train_output)
                 saver.restore(sess, ckpt_name)
             if not os.path.exists(self.train_output):
                 os.makedirs(self.train_output)
