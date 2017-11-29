@@ -9,5 +9,7 @@ __pycache__/
 #data
 datasets/
 
-#training output
+#training/testing output
 train/
+test/
+
