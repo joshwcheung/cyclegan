@@ -4,68 +4,76 @@ import random
 import tensorflow as tf
 
 from datetime import datetime
+from glob import glob
 
 from models import *
 from util.loss import *
-from util.nifti_to_npy import npy_to_nifti
-from util.nifti_to_tfrecord import read_from_tfrecord
+from util.nifti_to_binary import npy_to_nifti, read_from_tfrecord
 
 class CycleGAN:
-    def __init__(self):
+    def __init__(self, input_w, input_h, min_vox, max_vox, name, lambda_a, 
+                 lambda_b, pool_size, base_lr, max_step, n_save, batch_size, 
+                 is_train, restore_ckpt, train_dir, test_dir, input_dir, 
+                 timestamp, test_ids_a, test_ids_b):
         current_time = datetime.now().strftime('%Y%m%d-%H%M%S')
+        
         #Image dimensions
-        self.input_w = 286
-        self.input_h = 286
-        self.w = 256
-        self.h = 256
-        self.d = 256
-        self.c = 1
+        self.input_w, self.input_h = input_w, input_h
+        self.w, self.h, self.c = 256, 256, 1
         
-        #TODO: Maybe make these adjustable? min/max voxels
-        self.min = -137.284
-        self.max = 17662.5
+        #Min/max voxels
+        self.min, self.max = min_vox, max_vox
         
-        #Cycle consistency loss weights
-        self.lambda_a = 10.0
-        self.lambda_b = 10.0
-        
-        #File paths
-        self.name = 'gad_small'
-        self.train_output = os.path.join('train/', self.name, current_time)
-        self.ckpt_dir = os.path.join(self.train_output, 'checkpoints')
-        self.npy_dir = os.path.join(self.train_output, 'npy')
-        self.img_dir = os.path.join(self.train_output, 'images')
+        #Dataset name
+        self.name = name
         
         #Training parameters
-        self.restore_ckpt = False #TODO: Pass as variable
-        self.pool_size = 50
-        self.base_lr = 0.0002
-        self.max_step = 200
-        self.save_training_images = True
-        self.n_save = 1
+        self.restore_ckpt = restore_ckpt
+        self.lambda_a = lambda_a
+        self.lambda_b = lambda_b
+        self.pool_size = pool_size
+        self.base_lr = base_lr
+        self.max_step = max_step
+        self.n_save = n_save
+        self.save_training_images = n_save > 0
         self.batch_size = 1
+        
+        #Training/testing file paths
+        self.input_dir = input_dir
+        if is_train:
+            if restore_ckpt:
+                self.train_output = os.path.join(train_dir, timestamp)
+            else:
+                self.train_output = os.path.join(train_dir, current_time)
+            
+            self.ckpt_dir = os.path.join(self.train_output, 'checkpoints')
+            self.npy_dir = os.path.join(self.train_output, 'npy')
+            self.img_dir = os.path.join(self.train_output, 'images')
+        else:
+            self.ckpt_dir = os.path.join(train_dir, timestamp)
+            self.test_output = os.path.join(test_dir, current_time)
+            self.npy_dir = os.path.join(self.test_output, 'npy')
+            self.img_dir = os.path.join(self.test_output, 'images')
         
         #Initalize fake images
         self.fake_a = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
         self.fake_b = np.zeros((self.pool_size, 1, self.h, self.w, self.c))
         
-        #Training/Testing paired subjects
-        #train_ids = np.concatenate((np.arange(20, 42), np.arange(43, 52), 
-        #                            np.arange(53, 55)))
-        #test_ids = np.concatenate((np.arange(1, 3), np.arange(4, 12)))
-        train_ids = np.array([1, 2, 4, 5])
-        test_ids = np.concatenate((np.arange(6, 19), np.arange(20, 42), 
-                                   np.arange(43, 52), np.arange(53, 55)))
+        #Randomly select training subjects to save
+        ids_a = glob(os.path.join(input_dir, 'trainA', '*.tfrecord'))
+        ids_b = glob(os.path.join(input_dir, 'trainB', '*.tfrecord'))
+        ids_a = set([os.path.basename(x).split('-')[0] for x in ids_a])
+        ids_b = set([os.path.basename(x).split('-')[0] for x in ids_b])
+        ids_a = random.sample(ids_a, n_save)
+        ids_b = random.sample(ids_b, n_save)
+        self.train_ids = {'A': ids_a, 'B': ids_b}
         
-        train_ids = ['{:02d}'.format(i) for i in train_ids]
-        test_ids = ['{:02d}'.format(i) for i in test_ids]
+        #Test IDs
+        self.test_ids = {'A': test_ids_a, 'B': test_ids_b}
         
-        self.ids = {'train': train_ids, 'test': test_ids}
-    
     def input_setup(self):
-        input_dir = os.path.join('datasets/', self.name)
-        train_a_dir = os.path.join(input_dir, 'trainA', '*.tfrecord')
-        train_b_dir = os.path.join(input_dir, 'trainB', '*.tfrecord')
+        train_a_dir = os.path.join(self.input_dir, 'trainA', '*.tfrecord')
+        train_b_dir = os.path.join(self.input_dir, 'trainB', '*.tfrecord')
         
         train_a_names = tf.train.match_filenames_once(train_a_dir)
         train_b_names = tf.train.match_filenames_once(train_b_dir)
@@ -91,29 +99,28 @@ class CycleGAN:
         image_a = tf.random_crop(image_a, [self.h, self.w, self.c])
         image_b = tf.random_crop(image_b, [self.h, self.w, self.c])
         
-        #Normalize values: -1 to 1
-        denom = (self.max - self.min) / 2
-        image_a = tf.subtract(tf.divide(tf.subtract(image_a, self.min), denom), 
-                              1)
-        image_b = tf.subtract(tf.divide(tf.subtract(image_b, self.min), denom), 
-                              1)
-        
         #Reshape to batch_size, h, w, c
         self.input_a = tf.reshape(image_a, [1, self.h, self.w, self.c])
         self.input_b = tf.reshape(image_b, [1, self.h, self.w, self.c])
     
-    def save_train_images_setup(self):
-        #Choose random subjects to save training images for
-        self.train_ids = random.sample(self.ids['train'], self.n_save)
-        train_a_path = [os.path.join('datasets/', self.name, 'trainA', 
-                                     '{:s}*.tfrecord'.format(x)) 
-                        for x in self.train_ids]
-        train_b_path = [os.path.join('datasets/', self.name, 'trainB', 
-                                     '{:s}*.tfrecord'.format(x)) 
-                        for x in self.train_ids]
+    def save_images_setup(self, is_train):
+        if is_train:
+            path_a = [os.path.join(self.input_dir, 'trainA', 
+                                   '{:s}*.tfrecord'.format(x)) 
+                      for x in self.train_ids['A']]
+            path_b = [os.path.join(self.input_dir, 'trainB', 
+                                   '{:s}*.tfrecord'.format(x)) 
+                      for x in self.train_ids['B']]
+        else: 
+            path_a = [os.path.join(self.input_dir, 'testA', 
+                                   '{:s}*.tfrecord'.format(x)) 
+                      for x in self.test_ids['A']]
+            path_b = [os.path.join(self.input_dir, 'testB', 
+                                   '{:s}*.tfrecord'.format(x)) 
+                      for x in self.test_ids['B']]
         
-        a_names = tf.train.match_filenames_once(train_a_path)
-        b_names = tf.train.match_filenames_once(train_b_path)
+        a_names = tf.train.match_filenames_once(path_a)
+        b_names = tf.train.match_filenames_once(path_b)
         
         img_a = read_from_tfrecord(a_names, shuffle=False)
         img_b = read_from_tfrecord(b_names, shuffle=False)
@@ -132,8 +139,8 @@ class CycleGAN:
         self.img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
         
         #Paths to affines of original images
-        self.affine_a = os.path.join('datasets/', self.name, 'affineA')
-        self.affine_b = os.path.join('datasets/', self.name, 'affineB')
+        self.affine_a = os.path.join(self.input_dir, 'affineA')
+        self.affine_b = os.path.join(self.input_dir, 'affineB')
         
         return a_names, b_names
     
@@ -156,7 +163,7 @@ class CycleGAN:
         self.lr = tf.placeholder(tf.float32, shape=[], name='lr')
         
         self.forward()
-        
+    
     def forward(self):
         with tf.variable_scope('CycleGAN') as scope:
             #D(A), D(B)
@@ -235,7 +242,7 @@ class CycleGAN:
             else:
                 return fake
     
-    def save_train_images(self, sess, epoch, a_names, b_names):
+    def save_images(self, sess, epoch, a_names, b_names, ids):
         if not os.path.exists(self.npy_dir):
             os.makedirs(self.npy_dir)
         if not os.path.exists(self.img_dir):
@@ -289,13 +296,15 @@ class CycleGAN:
             np.save(cyc_b_path, cyc_b_tmp)
         
         #Save as nifti
-        for subject in self.train_ids:
+        for subject in ids['A']:
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
                          'epoch_{:d}_fake_b_{:s}'.format(epoch, subject))
-            npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
-                         'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
                          'epoch_{:d}_cyc_a_{:s}'.format(epoch, subject))
+            
+        for subject in ids['B']:
+            npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
+                         'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
     
@@ -305,7 +314,7 @@ class CycleGAN:
         self.loss()
         
         if self.save_training_images:
-            a_names, b_names = self.save_train_images_setup()
+            a_names, b_names = self.save_images_setup(is_train=True)
         
         init = (tf.global_variables_initializer(), 
                 tf.local_variables_initializer())
@@ -333,7 +342,9 @@ class CycleGAN:
                     current_lr = self.base_lr - self.base_lr * (epoch - 100)/100
                 
                 if self.save_training_images:
-                    self.save_train_images(sess, epoch, a_names, b_names)
+                    print('Saving images for epoch {}...'.format(epoch))
+                    self.save_images(sess, epoch, a_names, b_names, 
+                                     self.train_ids)
                 
                 total = sess.run(self.n_train)
                 for i in range(0, total):
@@ -389,11 +400,14 @@ class CycleGAN:
             coord.join(threads)
             writer.add_graph(sess.graph)
     
-    def test(self, filename):
+    def test(self):
         self.setup()
         
+        a_names, b_names = self.save_images_setup(is_train=False)
+        
         saver = tf.train.Saver()
-        init = tf.global_variables_initializer()
+        init = (tf.global_variables_initializer(), 
+                tf.local_variables_initializer())
         
         with tf.Session() as sess:
             sess.run(init)
@@ -403,7 +417,7 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             
-            
+            self.save_images(sess, 0, a_names, b_names, self.test_ids)
             
             coord.request_stop()
             coord.join(threads)

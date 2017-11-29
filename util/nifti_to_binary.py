@@ -36,25 +36,18 @@ def read_from_tfrecord(filenames, shuffle=True):
     array = tf.reshape(array, shape)
     return array
 
-def npy_to_nifti(basename, subject, npy_path, affine_path, minmax_path, 
-                 nifti_path):
+def npy_to_nifti(subject, npy_path, affine_path, nifti_path, basename):
     pattern = '{:s}*.npy'.format(basename)
     image_paths = sorted(glob(os.path.join(npy_path, pattern)))
     affine_path = os.path.join(affine_path, '{:s}.npy'.format(subject))
-    minmax_path = os.path.join(minmax_path, '{:s}.npy'.format(subject))
     
-    #Load
     affine = np.load(affine_path)
-    minmax = np.load(minmax_path)
     image_list = []
     for path in image_paths:
         image = np.squeeze(np.load(path))
         image_list.append(image)
     
-    #Reconstruct image and rescale
     array_data = np.stack(image_list, axis=-1)
-    array_data = ((array_data + 1) / 2) * (minmax[1] - minmax[0]) + minmax[0]
-    
     array_img = nib.Nifti1Image(array_data, affine)
     out_path = os.path.join(nifti_path, '{:s}.nii.gz'.format(basename))
     nib.save(array_img, out_path)
@@ -71,13 +64,10 @@ def main():
             
             affine_path = os.path.join(dataset_path, 'affine', x)
             slices_path = os.path.join(dataset_path, 'slices', x)
-            minmax_path = os.path.join(dataset_path, 'minmax', x)
             if not os.path.exists(affine_path):
                 os.makedirs(affine_path)
             if not os.path.exists(slices_path):
                 os.makedirs(slices_path)
-            if not os.path.exists(minmax_path):
-                os.makedirs(minmax_path)
             
             #Load image
             img = nib.load(path)
@@ -90,17 +80,9 @@ def main():
             #Add channel dimension
             data = np.expand_dims(data, axis=3)
             
-            #Normalize to -1, 1
-            img_min, img_max = np.amin(data), np.amax(data)
-            data = 2 * ((data - img_min) / (img_max - img_min)) - 1
-            
             #Save affine as .npy
             print('Saving {:s}-{:s}...'.format(x, subj_name))
             np.save(os.path.join(affine_path, subj_name), affine)
-            
-            #Save [img_min, img_max] as .npy
-            np.save(os.path.join(minmax_path, subj_name), 
-                    np.array([img_min, img_max]))
             
             #Save slices as .tfrecord
             for i in range(data.shape[0]):
