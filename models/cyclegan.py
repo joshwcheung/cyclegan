@@ -9,6 +9,7 @@ from glob import glob
 from models import *
 from util.loss import *
 from util.nifti_to_binary import npy_to_nifti, read_from_tfrecord
+from util.pad import resize_pad
 
 class CycleGAN:
     def __init__(self, input_w, input_h, min_vox, max_vox, name, lambda_a, 
@@ -86,10 +87,9 @@ class CycleGAN:
         image_b = read_from_tfrecord(train_b_names)
         
         #Resize without scaling
-        image_a = tf.image.resize_image_with_crop_or_pad(image_a, self.input_h, 
-                                                         self.input_w)
-        image_b = tf.image.resize_image_with_crop_or_pad(image_b, self.input_h, 
-                                                         self.input_w)
+        image_a = resize_pad(image_a, self.input_h, self.input_w)
+        image_b = resize_pad(image_a, self.input_h, self.input_w)
+        
         
         #Randomly flip
         image_a = tf.image.random_flip_left_right(image_a)
@@ -126,8 +126,8 @@ class CycleGAN:
         img_b = read_from_tfrecord(b_names, shuffle=False)
         
         #Resize without scaling
-        img_a = tf.image.resize_image_with_crop_or_pad(img_a, self.h, self.w)
-        img_b = tf.image.resize_image_with_crop_or_pad(img_b, self.h, self.w)
+        img_a = resize_pad(img_a, self.h, self.w)
+        img_b = resize_pad(img_b, self.h, self.w)
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
