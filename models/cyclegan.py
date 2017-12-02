@@ -90,6 +90,12 @@ class CycleGAN:
         image_a = resize_pad(image_a, self.input_h, self.input_w)
         image_b = resize_pad(image_a, self.input_h, self.input_w)
         
+        #Normalize values: -1 to 1
+        denom = (self.max - self.min) / 2
+        image_a = tf.subtract(tf.divide(tf.subtract(image_a, self.min), denom), 
+                              1)
+        image_b = tf.subtract(tf.divide(tf.subtract(image_b, self.min), denom), 
+                              1)
         
         #Randomly flip
         image_a = tf.image.random_flip_left_right(image_a)
