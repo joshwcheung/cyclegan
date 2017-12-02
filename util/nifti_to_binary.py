@@ -71,8 +71,8 @@ def main():
             
             #Load image
             img = nib.load(path)
-            affine = np.asarray(img.affine, dtype=np.float32)
-            data = img.get_data()
+            affine = img.affine.astype(np.float32)
+            data = img.get_data().astype(np.float32)
             
             #Transpose so that acquisition slices are in the first dimension
             data = data.transpose(2, 0, 1)
