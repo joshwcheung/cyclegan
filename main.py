@@ -17,11 +17,13 @@ def main():
     ge_args = parser.add_argument_group('general', 'General arguments')
     
     ge_args.add_argument('-u', '--min', action='store', nargs='?', 
-                         default=-137.284, type=float, 
-                         help='Minimum voxel intensity. Default: -137.284')
+                         default=-137.28571428571004, type=float, 
+                         help=('Minimum voxel intensity. Default: '
+                               '-137.28571428571004'))
     ge_args.add_argument('-v', '--max', action='store', nargs='?', 
-                         default=17662.5, type=float, 
-                         help='Maximum voxel intensity. Default: 17662.5')
+                         default=17662.535068643472, type=float, 
+                         help=('Maximum voxel intensity. Default: '
+                               '17662.535068643472'))
     ge_args.add_argument('-n', '--name', action='store', nargs='?', 
                          default='gad', type=str, 
                          help='Dataset name. Default: "gad"')
