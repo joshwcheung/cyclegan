@@ -23,8 +23,8 @@ def main():
                          default=17662.5, type=float, 
                          help='Maximum voxel intensity. Default: 17662.5')
     ge_args.add_argument('-n', '--name', action='store', nargs='?', 
-                         default='gad_small', type=str, 
-                         help='Dataset name. Default: "gad_small"')
+                         default='gad', type=str, 
+                         help='Dataset name. Default: "gad"')
     ge_args.add_argument('-t', '--train', action='store_true', 
                          help='Run training. Ignore to test.')
     
