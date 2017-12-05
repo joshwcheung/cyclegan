@@ -314,7 +314,7 @@ class CycleGAN:
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
         
-        #Delete old training images
+        #Delete old training images; #TODO: use variable for # of saved epochs
         if epoch > 9:
             npy_to_remove = 'epoch_{:d}_*.npy'.format(epoch - 10)
             nifti_to_remove = 'epoch_{:d}_*.nii.gz'.format(epoch - 10)
@@ -434,7 +434,8 @@ class CycleGAN:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             
-            self.save_images(sess, 0, a_names, b_names, self.test_ids)
+            epoch = sess.run(self.global_step)
+            self.save_images(sess, epoch, a_names, b_names, self.test_ids)
             
             coord.request_stop()
             coord.join(threads)
