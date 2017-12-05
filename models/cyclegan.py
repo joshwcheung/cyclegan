@@ -313,6 +313,17 @@ class CycleGAN:
                          'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
+        
+        #Delete old training images
+        if epoch > 9:
+            npy_to_remove = 'epoch_{:d}_*.npy'.format(epoch - 10)
+            nifti_to_remove = 'epoch_{:d}_*.nii.gz'.format(epoch - 10)
+            rm_npy = os.path.join(self.npy_dir, npy_to_remove)
+            rm_nifti = os.path.join(self.img_dir, nifti_to_remove)
+            for f in glob(rm_npy):
+                os.remove(f)
+            for f in glob(rm_nifti):
+                os.remove(f)
     
     def train(self):
         self.input_setup()
