@@ -85,12 +85,6 @@ class CycleGAN:
         image_a = read_from_tfrecord(train_a_names)
         image_b = read_from_tfrecord(train_b_names)
         
-        #Resize without scaling
-        image_a = tf.image.resize_image_with_crop_or_pad(image_a, self.input_h, 
-                                                         self.input_w)
-        image_b = tf.image.resize_image_with_crop_or_pad(image_b, self.input_h, 
-                                                         self.input_w)
-        
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2
         image_a = tf.subtract(tf.divide(tf.subtract(image_a, self.min), denom), 
@@ -131,10 +125,6 @@ class CycleGAN:
         
         img_a = read_from_tfrecord(a_names, shuffle=False)
         img_b = read_from_tfrecord(b_names, shuffle=False)
-        
-        #Resize without scaling
-        img_a = tf.image.resize_image_with_crop_or_pad(img_a, self.h, self.w)
-        img_b = tf.image.resize_image_with_crop_or_pad(img_b, self.h, self.w)
         
         #Normalize values: -1 to 1
         denom = (self.max - self.min) / 2

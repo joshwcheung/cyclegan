@@ -4,6 +4,7 @@ import os
 import tensorflow as tf
 
 from glob import glob
+from nilearn.image import reorder_img, resample_img
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -52,6 +53,19 @@ def npy_to_nifti(subject, npy_path, affine_path, nifti_path, basename):
     out_path = os.path.join(nifti_path, '{:s}.nii.gz'.format(basename))
     nib.save(array_img, out_path)
 
+def resize(image, shape, interpolation='continuous'):
+    input_shape = np.asarray(image.shape, dtype=np.float16)
+    output_shape = np.asarray(shape)
+    spacing = input_shape / output_shape
+    
+    ras = reorder_img(image, resample=interpolation)
+    affine = np.copy(ras.affine)
+    affine[:3, :3] = ras.affine[:3, :3] * np.diag(spacing)
+    
+    resampled = resample_img(ras, target_affine=affine, target_shape=shape, 
+                             interpolation=interpolation)
+    return resampled
+
 def main():
     dataset_path = '../datasets/gad/'
     nifti_path = os.path.join(dataset_path, 'nifti')
@@ -71,6 +85,7 @@ def main():
             
             #Load image
             img = nib.load(path)
+            img = resize(img, (256, 256, 256))
             affine = img.affine.astype(np.float32)
             data = img.get_data().astype(np.float32)
             
@@ -89,7 +104,7 @@ def main():
                 slice_name = '{:s}-{:03d}'.format(subj_name, i)
                 out = os.path.join(slices_path, 
                                    '{:s}.tfrecord'.format(slice_name))
-                write_to_tfrecord(data[i, :, :, :], out)
+                write_to_tfrecord(data[i], out)
     print('Done.')
 
 if __name__ == '__main__':
