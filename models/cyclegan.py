@@ -96,7 +96,11 @@ class CycleGAN:
         image_a = tf.image.random_flip_left_right(image_a)
         image_b = tf.image.random_flip_left_right(image_b)
         
-        #Randomly crop
+        #Resize to input width/height during training
+        image_a = tf.image.resize_images(image_a, [self.input_h, self.input_w])
+        image_b = tf.image.resize_images(image_b, [self.input_h, self.input_w])
+        
+        #Randomly crop to output width/height
         image_a = tf.random_crop(image_a, [self.h, self.w, self.c])
         image_b = tf.random_crop(image_b, [self.h, self.w, self.c])
         
@@ -131,7 +135,7 @@ class CycleGAN:
         img_a = tf.subtract(tf.divide(tf.subtract(img_a, self.min), denom), 1)
         img_b = tf.subtract(tf.divide(tf.subtract(img_b, self.min), denom), 1)
         
-        #Reshape to 1, h, w, c
+        #Reshape to 1, h, w, c; assume proper input size
         self.img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
         self.img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
         
