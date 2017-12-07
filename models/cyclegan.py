@@ -266,16 +266,20 @@ class CycleGAN:
             fake_b_tmp, cyc_a_tmp = sess.run(run_list, feed_dict=feed_dict)
             
             #De-normalize
+            real_a_tmp = ((in_a + 1) / 2 * (self.max - self.min) + self.min)
             fake_b_tmp = ((fake_b_tmp + 1) / 2 * (self.max - self.min) + 
                           self.min)
             cyc_a_tmp = ((cyc_a_tmp + 1) / 2 * (self.max - self.min) + 
                          self.min)
             
             #Save as .npy
+            real_a_name = 'epoch_{:d}_real_a_{:s}'.format(epoch, a_name)
             fake_b_name = 'epoch_{:d}_fake_b_{:s}'.format(epoch, a_name)
             cyc_a_name = 'epoch_{:d}_cyc_a_{:s}'.format(epoch, a_name)
+            real_a_path = os.path.join(self.npy_dir, real_a_name)
             fake_b_path = os.path.join(self.npy_dir, fake_b_name)
             cyc_a_path = os.path.join(self.npy_dir, cyc_a_name)
+            np.save(real_a_path, real_a_tmp)
             np.save(fake_b_path, fake_b_tmp)
             np.save(cyc_a_path, cyc_a_tmp)
         
@@ -288,36 +292,44 @@ class CycleGAN:
             fake_a_tmp, cyc_b_tmp = sess.run(run_list, feed_dict=feed_dict)
             
             #De-normalize
+            real_b_tmp = ((in_b + 1) / 2 * (self.max - self.min) + self.min)
             fake_a_tmp = ((fake_a_tmp + 1) / 2 * (self.max - self.min) + 
                           self.min)
             cyc_b_tmp = ((cyc_b_tmp + 1) / 2 * (self.max - self.min) + 
                          self.min)
             
             #Save as .npy
+            real_b_name = 'epoch_{:d}_real_b_{:s}'.format(epoch, b_name)
             fake_a_name = 'epoch_{:d}_fake_a_{:s}'.format(epoch, b_name)
             cyc_b_name = 'epoch_{:d}_cyc_b_{:s}'.format(epoch, b_name)
+            real_b_path = os.path.join(self.npy_dir, real_b_name)
             fake_a_path = os.path.join(self.npy_dir, fake_a_name)
             cyc_b_path = os.path.join(self.npy_dir, cyc_b_name)
+            np.save(real_b_path, real_b_tmp)
             np.save(fake_a_path, fake_a_tmp)
             np.save(cyc_b_path, cyc_b_tmp)
         
         #Save as nifti
         for subject in ids['A']:
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
+                         'epoch_{:d}_real_a_{:s}'.format(epoch, subject))
+            npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
                          'epoch_{:d}_fake_b_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
                          'epoch_{:d}_cyc_a_{:s}'.format(epoch, subject))
             
         for subject in ids['B']:
+            npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
+                         'epoch_{:d}_real_b_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
         
         #Delete old training images; #TODO: use variable for # of saved epochs
-        if epoch > 9:
-            npy_to_remove = 'epoch_{:d}_*.npy'.format(epoch - 10)
-            nifti_to_remove = 'epoch_{:d}_*.nii.gz'.format(epoch - 10)
+        if epoch > 4:
+            npy_to_remove = 'epoch_{:d}_*.npy'.format(epoch - 5)
+            nifti_to_remove = 'epoch_{:d}_*.nii.gz'.format(epoch - 5)
             rm_npy = os.path.join(self.npy_dir, npy_to_remove)
             rm_nifti = os.path.join(self.img_dir, nifti_to_remove)
             for f in glob(rm_npy):
