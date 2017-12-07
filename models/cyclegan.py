@@ -135,7 +135,11 @@ class CycleGAN:
         img_a = tf.subtract(tf.divide(tf.subtract(img_a, self.min), denom), 1)
         img_b = tf.subtract(tf.divide(tf.subtract(img_b, self.min), denom), 1)
         
-        #Reshape to 1, h, w, c; assume proper input size
+        #Resize without scaling
+        img_a = tf.image.resize_image_with_crop_or_pad(img_a, self.h, self.w)
+        img_b = tf.image.resize_image_with_crop_or_pad(img_b, self.h, self.w)
+        
+        #Reshape to 1, h, w, c
         self.img_a = tf.reshape(img_a, [1, self.h, self.w, self.c])
         self.img_b = tf.reshape(img_b, [1, self.h, self.w, self.c])
         
