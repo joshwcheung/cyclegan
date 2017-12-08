@@ -31,7 +31,7 @@ def positive_float(value):
         raise argparse.ArgumentTypeError(error)
     return fvalue
 
-def main():
+def parse():
     parser = argparse.ArgumentParser(description='CycleGAN arguments.')
     
     #General arguments
@@ -103,7 +103,10 @@ def main():
     te_args.add_argument('-j', '--ids2', action='store', nargs='*', type=str, 
                          help='Subject IDs from group B to test.')
     
-    args = parser.parse_args()
+    return parser.parse_args()
+
+def main():
+    args = parse()
     
     is_train = args.train
     restore_ckpt = args.restore
