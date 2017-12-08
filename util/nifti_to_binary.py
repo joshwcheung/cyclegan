@@ -1,3 +1,4 @@
+import argparse
 import nibabel as nib
 import numpy as np
 import os
@@ -66,45 +67,84 @@ def resize(image, shape, interpolation='continuous'):
                              interpolation=interpolation)
     return resampled
 
+def positive_int(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        error = '{:s} is an invalid positive int value'.format(value)
+        raise argparse.ArgumentTypeError(error)
+    return ivalue
+
+def parse():
+    parser = argparse.ArgumentParser(description='NIfTI to binary arguments.')
+    
+    optional = parser._action_groups.pop()
+    optional.add_argument('-x', '--x', action='store', nargs='?', 
+                          default=256, type=positive_int, 
+                          help=('Output size x. Image will be resampled prior '
+                                'to input into network. Assumes image is RAS '
+                                'ordered. Default: 256'))
+    optional.add_argument('-y', '--y', action='store', nargs='?', 
+                          default=256, type=positive_int, 
+                          help=('Output size y. Image will be resampled prior ' 
+                                'to input into network. Assumes image is RAS '
+                                'ordered. Default: 256'))
+    optional.add_argument('-z', '--z', action='store', nargs='?', 
+                          default=256, type=positive_int, 
+                          help=('Output size z. Image will be resampled prior '
+                                'to input into network. Assumes image is RAS '
+                                'ordered. Default: 256'))
+    
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('-i', '--input', action='store', type=str, 
+                          required=True, help='Input dir containing NIfTIs.')
+    required.add_argument('-a', '--affine', action='store', type=str, 
+                          required=True, help='Output dir for affines.')
+    required.add_argument('-s', '--slice', action='store', type=str, 
+                          required=True, help='Output dir for slices.')
+    
+    parser._action_groups.append(optional)
+    return parser.parse_args()
+
 def main():
-    dataset_path = '../datasets/gad/'
-    nifti_path = os.path.join(dataset_path, 'nifti')
-    for x in ('pre', 'post'):
-        for filename in os.listdir(os.path.join(nifti_path, x)):
-            path = os.path.join(nifti_path, x, filename)
-            subj_name, ext = os.path.splitext(filename)
-            if ext == '.gz':
-                subj_name = os.path.splitext(subj_name)[0]
-            
-            affine_path = os.path.join(dataset_path, 'affine', x)
-            slices_path = os.path.join(dataset_path, 'slices', x)
-            if not os.path.exists(affine_path):
-                os.makedirs(affine_path)
-            if not os.path.exists(slices_path):
-                os.makedirs(slices_path)
-            
-            #Load image
-            img = nib.load(path)
-            img = resize(img, (256, 256, 256))
-            affine = img.affine.astype(np.float32)
-            data = img.get_data().astype(np.float32)
-            
-            #Transpose so that acquisition slices are in the first dimension
-            data = data.transpose(2, 0, 1)
-            
-            #Add channel dimension
-            data = np.expand_dims(data, axis=3)
-            
-            #Save affine as .npy
-            print('Saving {:s}-{:s}...'.format(x, subj_name))
-            np.save(os.path.join(affine_path, subj_name), affine)
-            
-            #Save slices as .tfrecord
-            for i in range(data.shape[0]):
-                slice_name = '{:s}-{:03d}'.format(subj_name, i)
-                out = os.path.join(slices_path, 
-                                   '{:s}.tfrecord'.format(slice_name))
-                write_to_tfrecord(data[i], out)
+    args = parse()
+    input_path = args.input
+    affine_path = args.affine
+    slice_path = args.slice
+    x, y, z = args.x, args.y, args.z
+    
+    if not os.path.exists(affine_path):
+        os.makedirs(affine_path)
+    if not os.path.exists(slice_path):
+        os.makedirs(slice_path)
+    
+    for filename in os.listdir(input_path):
+        path = os.path.join(input_path, filename)
+        subj_name, ext = os.path.splitext(filename)
+        if ext == '.gz':
+            subj_name = os.path.splitext(subj_name)[0]
+        
+        #Load image
+        img = nib.load(path)
+        img = resize(img, (x, y, z))
+        affine = img.affine.astype(np.float32)
+        data = img.get_data().astype(np.float32)
+        
+        #Transpose so that acquisition slices are in the first dimension
+        data = data.transpose(2, 0, 1)
+        
+        #Add channel dimension
+        data = np.expand_dims(data, axis=3)
+        
+        #Save affine as .npy
+        print('Saving {:s}...'.format(subj_name))
+        np.save(os.path.join(affine_path, subj_name), affine)
+        
+        #Save slices as .tfrecord
+        for i in range(data.shape[0]):
+            slice_name = '{:s}-{:03d}'.format(subj_name, i)
+            out = os.path.join(slice_path, '{:s}.tfrecord'.format(slice_name))
+            write_to_tfrecord(data[i], out)
+    
     print('Done.')
 
 if __name__ == '__main__':
