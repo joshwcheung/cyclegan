@@ -36,9 +36,12 @@ def generator(x, nf=32, c=1, scope='gen'):
         res4 = resnet_block(res3, nf * 4, scope='res4')
         res5 = resnet_block(res4, nf * 4, scope='res5')
         res6 = resnet_block(res5, nf * 4, scope='res6')
+        res7 = resnet_block(res6, nf * 4, scope='res7')
+        res8 = resnet_block(res7, nf * 4, scope='res8')
+        res9 = resnet_block(res8, nf * 4, scope='res9')
         
         #Deconvolutional layers
-        g_c4 = deconv2d(res6, nf * 2, 3, stride=2, scope='dconv4')
+        g_c4 = deconv2d(res9, nf * 2, 3, stride=2, scope='dconv4')
         g_n4 = instance_norm(g_c4, scope='norm4')
         g_r4 = relu(g_n4, name='relu4')
         
