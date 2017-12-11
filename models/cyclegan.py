@@ -423,7 +423,8 @@ class CycleGAN:
                     self.n_fake += 1
                     
                 sess.run(tf.assign(self.global_step, epoch + 1))
-                
+            
+            saver.save(sess, self.ckpt_dir, global_step=epoch + 1)    
             coord.request_stop()
             coord.join(threads)
             writer.add_graph(sess.graph)
