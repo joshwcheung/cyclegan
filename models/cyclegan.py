@@ -324,7 +324,7 @@ class CycleGAN:
                          self.axis)
             
         for subject in ids['B']:
-            npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
+            npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
                          'epoch_{:d}_real_b_{:s}'.format(epoch, subject), 
                          self.axis)
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
