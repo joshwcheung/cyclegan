@@ -13,7 +13,7 @@ from util.nifti_to_binary import npy_to_nifti, read_from_tfrecord
 class CycleGAN:
     def __init__(self, input_w, input_h, min_vox, max_vox, name, lambda_a, 
                  lambda_b, pool_size, base_lr, max_step, n_save, batch_size, 
-                 is_train, restore_ckpt, train_dir, test_dir, input_dir, 
+                 axis, is_train, restore_ckpt, train_dir, test_dir, input_dir, 
                  timestamp, test_ids_a, test_ids_b):
         current_time = datetime.now().strftime('%Y%m%d-%H%M%S')
         
@@ -26,6 +26,9 @@ class CycleGAN:
         
         #Dataset name
         self.name = name
+        
+        #Slice axis
+        self.axis = axis
         
         #Training parameters
         self.restore_ckpt = restore_ckpt
@@ -311,19 +314,25 @@ class CycleGAN:
         #Save as nifti
         for subject in ids['A']:
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
-                         'epoch_{:d}_real_a_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_real_a_{:s}'.format(epoch, subject), 
+                         self.axis)
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
-                         'epoch_{:d}_fake_b_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_fake_b_{:s}'.format(epoch, subject), 
+                         self.axis)
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
-                         'epoch_{:d}_cyc_a_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_cyc_a_{:s}'.format(epoch, subject), 
+                         self.axis)
             
         for subject in ids['B']:
             npy_to_nifti(subject, self.npy_dir, self.affine_a, self.img_dir, 
-                         'epoch_{:d}_real_b_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_real_b_{:s}'.format(epoch, subject), 
+                         self.axis)
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
-                         'epoch_{:d}_fake_a_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_fake_a_{:s}'.format(epoch, subject), 
+                         self.axis)
             npy_to_nifti(subject, self.npy_dir, self.affine_b, self.img_dir, 
-                         'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject))
+                         'epoch_{:d}_cyc_b_{:s}'.format(epoch, subject), 
+                         self.axis)
         
         #Delete old training images; #TODO: use variable for # of saved epochs
         if epoch > 4:
