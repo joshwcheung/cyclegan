@@ -7,6 +7,8 @@ import tensorflow as tf
 from glob import glob
 from nilearn.image import reorder_img, resample_img
 
+from parser import nifti_to_binary_parser
+
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
@@ -38,7 +40,7 @@ def read_from_tfrecord(filenames, shuffle=True):
     array = tf.reshape(array, shape)
     return array
 
-def npy_to_nifti(subject, npy_path, affine_path, nifti_path, basename):
+def npy_to_nifti(subject, npy_path, affine_path, nifti_path, basename, axis):
     pattern = '{:s}*.npy'.format(basename)
     image_paths = sorted(glob(os.path.join(npy_path, pattern)))
     affine_path = os.path.join(affine_path, '{:s}.npy'.format(subject))
@@ -49,7 +51,7 @@ def npy_to_nifti(subject, npy_path, affine_path, nifti_path, basename):
         image = np.squeeze(np.load(path))
         image_list.append(image)
     
-    array_data = np.stack(image_list, axis=-1)
+    array_data = np.stack(image_list, axis=axis)
     array_img = nib.Nifti1Image(array_data, affine)
     out_path = os.path.join(nifti_path, '{:s}.nii.gz'.format(basename))
     nib.save(array_img, out_path)
@@ -67,50 +69,13 @@ def resize(image, shape, interpolation='continuous'):
                              interpolation=interpolation)
     return resampled
 
-def positive_int(value):
-    ivalue = int(value)
-    if ivalue <= 0:
-        error = '{:s} is an invalid positive int value'.format(value)
-        raise argparse.ArgumentTypeError(error)
-    return ivalue
-
-def parse():
-    parser = argparse.ArgumentParser(description='NIfTI to binary arguments.')
-    
-    optional = parser._action_groups.pop()
-    optional.add_argument('-x', '--x', action='store', nargs='?', 
-                          default=256, type=positive_int, 
-                          help=('Output size x. Image will be resampled prior '
-                                'to input into network. Assumes image is RAS '
-                                'ordered. Default: 256'))
-    optional.add_argument('-y', '--y', action='store', nargs='?', 
-                          default=256, type=positive_int, 
-                          help=('Output size y. Image will be resampled prior ' 
-                                'to input into network. Assumes image is RAS '
-                                'ordered. Default: 256'))
-    optional.add_argument('-z', '--z', action='store', nargs='?', 
-                          default=256, type=positive_int, 
-                          help=('Output size z. Image will be resampled prior '
-                                'to input into network. Assumes image is RAS '
-                                'ordered. Default: 256'))
-    
-    required = parser.add_argument_group('required arguments')
-    required.add_argument('-i', '--input', action='store', type=str, 
-                          required=True, help='Input dir containing NIfTIs.')
-    required.add_argument('-a', '--affine', action='store', type=str, 
-                          required=True, help='Output dir for affines.')
-    required.add_argument('-s', '--slice', action='store', type=str, 
-                          required=True, help='Output dir for slices.')
-    
-    parser._action_groups.append(optional)
-    return parser.parse_args()
-
 def main():
-    args = parse()
+    args = nifti_to_binary_parser().parse_args()
     input_path = args.input
     affine_path = args.affine
     slice_path = args.slice
     x, y, z = args.x, args.y, args.z
+    d = args.direction
     
     if not os.path.exists(affine_path):
         os.makedirs(affine_path)
@@ -129,8 +94,10 @@ def main():
         affine = img.affine.astype(np.float32)
         data = img.get_data().astype(np.float32)
         
-        #Transpose so that acquisition slices are in the first dimension
-        data = data.transpose(2, 0, 1)
+        #Transpose so that desired slices are in the first dimension
+        axes = [d] + range(data.ndim)
+        del axes[d + 1]
+        data = data.transpose(axes)
         
         #Add channel dimension
         data = np.expand_dims(data, axis=3)
