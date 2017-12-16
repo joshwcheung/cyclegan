@@ -33,11 +33,11 @@ def general_parser():
     general = parser.add_argument_group('general', 'General arguments')
     
     general.add_argument('-u', '--min', action='store', nargs='?', 
-                         default=-137.28571428571004, type=float, 
+                         default=-193.0, type=float, 
                          help=('Minimum voxel intensity. Default: '
                                '-137.28571428571004'))
     general.add_argument('-v', '--max', action='store', nargs='?', 
-                         default=17662.535068643472, type=float, 
+                         default=19152.0, type=float, 
                          help=('Maximum voxel intensity. Default: '
                                '17662.535068643472'))
     general.add_argument('-n', '--name', action='store', nargs='?', 
